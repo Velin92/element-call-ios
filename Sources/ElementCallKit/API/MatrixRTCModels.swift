@@ -482,27 +482,11 @@ public nonisolated struct MatrixRTCVideoConstraints: Sendable, Hashable {
     }
 }
 
-public nonisolated struct MatrixRTCOpenIDToken: Sendable {
-    public let accessToken: String
-    public let tokenType: String
-    public let matrixServerName: String
-    public let expiresIn: TimeInterval
-    
-    public init(accessToken: String, tokenType: String, matrixServerName: String, expiresIn: TimeInterval) {
-        self.accessToken = accessToken
-        self.tokenType = tokenType
-        self.matrixServerName = matrixServerName
-        self.expiresIn = expiresIn
-    }
-}
-
 public nonisolated enum MatrixRTCError: Error, Sendable {
-    /// The room did not become ready: some feed of the transport's room never delivered.
+    /// The room did not become ready: some feed of the host's backend never delivered.
     case roomNotReady(roomID: String)
     /// The join was refused because the room's slot for calls is closed.
     case slotClosed(String)
     case ffi(String)
     case media(String)
-    /// The host could not set up its Matrix side for the room.
-    case transport(String)
 }

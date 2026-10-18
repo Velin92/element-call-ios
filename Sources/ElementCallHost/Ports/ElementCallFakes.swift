@@ -8,115 +8,92 @@
 import Combine
 import ElementCallKit
 import Foundation
+import MatrixRtc
 import Synchronization
 
 // Fakes for every port, shipped in the product rather than the test target on purpose: a host needs
 // them for its own previews, and the example harness runs on them.
 
-/// Answers every Matrix call with nothing. Enough for a controller that never joins, and the
-/// starting point for a test that scripts specific answers.
-public final nonisolated class ElementCallFakeTransport: ElementCallMatrixTransportProtocol {
+/// The core's Matrix side, answering every send and delivering an encrypted room holding only us,
+/// with no call in it and one LiveKit transport on offer. Every room subject delivers its current
+/// value once, so the core would treat the room as ready. Enough for a controller that never joins,
+/// and the starting point for a test that scripts specific answers.
+public final nonisolated class ElementCallFakeMatrixBackend: MatrixBackend {
     public let userID: String
     public let deviceID: String
-    
-    public init(userID: String = "@alice:example.org", deviceID: String = "FAKEDEVICE") {
-        self.userID = userID
-        self.deviceID = deviceID
-    }
-    
-    public func openRoom(roomID: String) async throws -> any ElementCallMatrixRoomProtocol {
-        ElementCallFakeMatrixRoom(roomID: roomID, ownUserID: userID)
-    }
-    
-    public func sendToDeviceMessage(eventType: String, messages: [String: [String: String]]) async throws -> [String: [String]] {
-        [:]
-    }
-    
-    public func toDeviceMessages(eventTypes: [String]) -> AsyncStream<MatrixRTCToDeviceMessage> {
-        AsyncStream { $0.finish() }
-    }
-    
-    public func requestOpenIDToken() async throws -> MatrixRTCOpenIDToken {
-        .init(accessToken: "", tokenType: "Bearer", matrixServerName: "example.org", expiresIn: 3600)
-    }
-}
-
-/// An encrypted room holding only us, with no call in it and one LiveKit transport on offer. Every
-/// feed delivers its current value once, so the core would treat it as ready.
-public final nonisolated class ElementCallFakeMatrixRoom: ElementCallMatrixRoomProtocol {
-    public let roomID: String
-    public let ownUserID: String
     public let transportsJSON: String
     
-    public init(roomID: String,
-                ownUserID: String,
+    public init(userID: String = "@alice:example.org",
+                deviceID: String = "FAKEDEVICE",
                 transportsJSON: String = #"[{"type":"livekit","livekit_service_url":"https://sfu.example.org"}]"#) {
-        self.roomID = roomID
-        self.ownUserID = ownUserID
+        self.userID = userID
+        self.deviceID = deviceID
         self.transportsJSON = transportsJSON
     }
     
-    public func isEncrypted() -> AsyncStream<Bool> {
-        Self.once(true)
+    public func ownUserId() -> String {
+        userID
     }
     
-    public func joinedMemberIDs() -> AsyncStream<[String]> {
-        Self.once([ownUserID])
+    public func ownDeviceId() -> String {
+        deviceID
     }
     
-    public func stickyEvents() -> AsyncStream<[ElementCallRoomEvent]> {
-        Self.once([])
+    public func sendStickyEvent(roomId: String, eventType: String, contentJson: String, durationMs: UInt64) async throws -> String {
+        "$event"
     }
     
-    public func stateEvents(eventType: String) -> AsyncStream<[ElementCallRoomEvent]> {
-        Self.once([])
+    public func sendDelayedEvent(roomId: String, eventType: String, stateKey: String?, contentJson: String, delayMs: UInt64) async throws -> String {
+        "delay"
     }
     
-    public func timelineEvents(eventTypes: [String]) -> AsyncStream<[ElementCallRoomEvent]> {
-        AsyncStream { $0.finish() }
+    public func restartDelayedEvent(roomId: String, delayId: String) async throws { }
+    
+    public func cancelDelayedEvent(roomId: String, delayId: String) async throws { }
+    
+    public func sendToDeviceMessage(recipients: [FfiToDeviceRecipient], messageType: String, contentJson: String) async throws -> [FfiToDeviceDelivery] {
+        recipients.map { FfiToDeviceDelivery(userId: $0.userId, deviceId: $0.deviceId, error: nil) }
     }
     
-    public func redactions() -> AsyncStream<String> {
-        AsyncStream { $0.finish() }
+    public func sendStateEvent(roomId: String, eventType: String, stateKey: String, contentJson: String) async throws -> String {
+        "$event"
     }
     
-    public func relations(eventID: String, relType: String, eventType: String) async throws -> [ElementCallRoomEvent] {
+    public func sendRoomEvent(roomId: String, eventType: String, contentJson: String) async throws -> String {
+        "$event"
+    }
+    
+    public func redactEvent(roomId: String, eventId: String, reason: String?) async throws { }
+    
+    public func subscribeRoom(roomId: String, subjects: FfiRoomSubjects, sink: RoomSink) throws -> BackendSubscription {
+        sink.onEncryption(encrypted: true)
+        sink.onJoinedMembers(userIds: [userID])
+        sink.onStickyEvents(events: [])
+        for eventType in subjects.stateEventTypes {
+            sink.onStateEvents(eventType: eventType, events: [])
+        }
+        return Subscription()
+    }
+    
+    public func subscribeToDevice(eventTypes: [String], sink: ToDeviceSink) throws -> BackendSubscription {
+        Subscription()
+    }
+    
+    public func relations(roomId: String, eventId: String, relType: String, eventType: String) async throws -> [FfiEventIn] {
         []
+    }
+    
+    public func openidToken() async throws -> FfiOpenIdToken {
+        FfiOpenIdToken(accessToken: "", tokenType: "Bearer", matrixServerName: "example.org", expiresInSecs: 3600)
     }
     
     public func rtcTransports() async throws -> String {
         transportsJSON
     }
     
-    public func sendStateEvent(eventType: String, stateKey: String, contentJSON: String) async throws -> String {
-        "$event"
-    }
-    
-    public func sendStickyEvent(eventType: String, contentJSON: String, durationMs: UInt64) async throws -> String {
-        "$event"
-    }
-    
-    public func sendDelayedEvent(eventType: String, stateKey: String?, contentJSON: String, delayMs: UInt64) async throws -> String {
-        "delay"
-    }
-    
-    public func updateDelayedEvent(delayID: String, action: MatrixRTCDelayedEventAction) async throws { }
-    
-    public func sendRoomEvent(eventType: String, contentJSON: String) async throws -> String {
-        "$event"
-    }
-    
-    public func redactEvent(eventID: String, reason: String?) async throws { }
-    
-    public func close() async { }
-    
-    /// A current value and nothing after it. Finishing is fine: a finished feed simply has no
-    /// changes to report.
-    private static func once<Value: Sendable>(_ value: Value) -> AsyncStream<Value> {
-        AsyncStream { continuation in
-            continuation.yield(value)
-            continuation.finish()
-        }
+    /// Nothing to cancel: every subject has already delivered all it ever will.
+    private final class Subscription: BackendSubscription {
+        func cancel() { }
     }
 }
 
@@ -230,7 +207,7 @@ public extension ElementCallController {
                      // A scripted call (`MatrixRTCScenarioPlayer`), so a real view model can run
                      // over a controller that never joined. Nil for the stills the previews want.
                      call: MatrixRTCMediaSession? = nil) -> ElementCallController {
-        let controller = ElementCallController(rtcClient: MatrixRTCClient(transport: ElementCallFakeTransport()),
+        let controller = ElementCallController(backend: ElementCallFakeMatrixBackend(),
                                                system: ElementCallFakeSystem(),
                                                options: options,
                                                style: style,
@@ -253,7 +230,7 @@ public extension ElementCallController {
                      room: any ElementCallRoomContextProtocol,
                      isAudioCall: Bool,
                      call: MatrixRTCMediaSession?) -> ElementCallController {
-        let controller = ElementCallController(rtcClient: MatrixRTCClient(transport: ElementCallFakeTransport()),
+        let controller = ElementCallController(backend: ElementCallFakeMatrixBackend(),
                                                system: ElementCallFakeSystem(),
                                                options: ElementCallOptions(isDeveloperModeEnabled: true),
                                                style: .stock,

@@ -174,7 +174,7 @@ struct CallStatusTests {
     
     private func start(status: FfiCallStatus, clock: any Clock<Duration> = ContinuousClock()) -> Fixture {
         let system = ElementCallFakeSystem()
-        let controller = ElementCallController(rtcClient: MatrixRTCClient(transport: ElementCallFakeTransport()),
+        let controller = ElementCallController(backend: ElementCallFakeMatrixBackend(),
                                                system: system,
                                                options: ElementCallOptions(),
                                                style: .stock,

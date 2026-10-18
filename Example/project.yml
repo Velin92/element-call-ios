@@ -17,6 +17,12 @@ options:
 packages:
   ElementCall:
     path: ../
+  # Only for the reference MatrixBackend in ElementCallExample/Matrix: the package itself carries no
+  # SDK, so a host is never held to our SDK version. Exact here because nothing depends on the
+  # example, so a pin costs nobody anything and keeps what is compiled reproducible.
+  MatrixRustSDK:
+    url: https://github.com/element-hq/matrix-rust-components-swift
+    exactVersion: 26.10.15
 
 targets:
   ElementCallExample:
@@ -32,6 +38,8 @@ targets:
     dependencies:
       - package: ElementCall
         product: ElementCall
+      - package: MatrixRustSDK
+        product: MatrixRustSDK
     settings:
       base:
         # libwebrtc's Objective-C categories live in a static archive and are dead-stripped without
@@ -46,6 +54,26 @@ targets:
         # on voice processing, which is the microphone. Nothing is recorded or sent.
         INFOPLIST_KEY_NSMicrophoneUsageDescription: The ringing fixtures play the call's sounds through the call's own audio, which uses the microphone.
         TARGETED_DEVICE_FAMILY: "1,2"
+
+  # The reference backend's mappings, in process: the example has no client, so this is all of it
+  # that can run here. Hostless, compiling the backend's sources itself: hosted in the app, the
+  # bundle cannot link the SDK values the tests build, because the app never makes them and they are
+  # stripped from it, and linking a second copy of the SDK beside the app's would duplicate it.
+  ElementCallExampleTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - ElementCallExampleTests
+      - ElementCallExample/Matrix
+    dependencies:
+      - package: ElementCall
+        product: ElementCall
+      - package: MatrixRustSDK
+        product: MatrixRustSDK
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        OTHER_LDFLAGS: $(inherited) -ObjC
 
   ElementCallExampleUITests:
     type: bundle.ui-testing
@@ -63,7 +91,9 @@ schemes:
     build:
       targets:
         ElementCallExample: all
+        ElementCallExampleTests: [test]
         ElementCallExampleUITests: [test]
     test:
       targets:
+        - ElementCallExampleTests
         - ElementCallExampleUITests

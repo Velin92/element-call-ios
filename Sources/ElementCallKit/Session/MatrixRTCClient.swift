@@ -10,46 +10,28 @@ import MatrixRtc
 
 /// The entry point to the core for one Matrix account: it opens rooms, and holds nothing about any
 /// room until one is asked for. There is nothing to start and nothing to feed; the core subscribes
-/// to what a room needs, through the transport, when the room is opened.
+/// to what a room needs, through the host's backend, when the room is opened.
 public final class MatrixRTCClient {
     /// How long a room may take to become ready. The core waits for one delivery of every subject it
-    /// subscribed to, with no deadline of its own, so a transport feed that never delivers would
+    /// subscribed to, with no deadline of its own, so a backend feed that never delivers would
     /// otherwise leave the join spinning for good.
     static let seedingTimeout: Duration = .seconds(30)
     
-    private let transport: any ElementCallMatrixTransportProtocol
-    private let backend: MatrixRTCBackend
+    private let backend: any MatrixBackend
     private let clock: any Clock<Duration>
     private lazy var client = RtcClient(backend: backend)
     
-    public init(transport: any ElementCallMatrixTransportProtocol, clock: any Clock<Duration> = ContinuousClock()) {
-        self.transport = transport
+    public init(backend: any MatrixBackend, clock: any Clock<Duration> = ContinuousClock()) {
+        self.backend = backend
         self.clock = clock
-        backend = MatrixRTCBackend(transport: transport)
     }
     
     /// Opens the room in a membership format and returns once the core has applied its current state.
     public func room(roomID: String, format: MatrixRTCMembershipFormat) async throws -> MatrixRTCRoom {
-        let matrixRoom: any ElementCallMatrixRoomProtocol
-        do {
-            matrixRoom = try await transport.openRoom(roomID: roomID)
-        } catch {
-            MatrixRTCLog.error("The transport could not open \(roomID): \(error)")
-            throw MatrixRTCError.transport("\(error)")
-        }
-        // Before the core asks for anything: it subscribes from inside `room`.
-        backend.register(matrixRoom)
-        
         MatrixRTCLog.info("Opening \(roomID) in format \(format)")
-        do {
-            let rtcRoom = try await seededRoom(roomID: roomID, format: format)
-            MatrixRTCLog.info("\(roomID) is ready")
-            return MatrixRTCRoom(rtcRoom: rtcRoom, matrixRoom: matrixRoom, backend: backend)
-        } catch {
-            backend.unregister(roomID: roomID)
-            await matrixRoom.close()
-            throw error
-        }
+        let rtcRoom = try await seededRoom(roomID: roomID, format: format)
+        MatrixRTCLog.info("\(roomID) is ready")
+        return MatrixRTCRoom(roomID: roomID, rtcRoom: rtcRoom)
     }
     
     /// The core's `room`, bounded by ``seedingTimeout``.
@@ -101,16 +83,12 @@ public final class MatrixRTCRoom {
     static let keepAliveTimeoutMs: UInt64 = 20000
     
     private let rtcRoom: RtcRoom
-    private let matrixRoom: any ElementCallMatrixRoomProtocol
-    private let backend: MatrixRTCBackend
     private var call: MatrixRTCCall?
     private var isShutDown = false
     
-    init(rtcRoom: RtcRoom, matrixRoom: any ElementCallMatrixRoomProtocol, backend: MatrixRTCBackend) {
-        roomID = matrixRoom.roomID
+    init(roomID: String, rtcRoom: RtcRoom) {
+        self.roomID = roomID
         self.rtcRoom = rtcRoom
-        self.matrixRoom = matrixRoom
-        self.backend = backend
     }
     
     /// Joins the room's call. No slot is named: the core joins the room-wide one, and picks the
@@ -139,16 +117,14 @@ public final class MatrixRTCRoom {
         return call
     }
     
-    /// Leaves any call still joined here, then stops following the room. The transport's room is
-    /// closed last, because the core leaves through it.
+    /// Leaves any call still joined here, then stops following the room: the core cancels its
+    /// subscriptions to the backend as it goes.
     public func shutdown() async {
         guard !isShutDown else { return }
         isShutDown = true
         await rtcRoom.shutdown()
         call?.stop()
         call = nil
-        backend.unregister(roomID: roomID)
-        await matrixRoom.close()
         MatrixRTCLog.info("Shut \(roomID) down")
     }
     

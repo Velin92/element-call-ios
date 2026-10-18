@@ -95,14 +95,11 @@ custom_rules:
     message: "The Compound component library must not be imported: its colours live on a shared instance the host re-brands at runtime. Take colours through ElementCallThemeProtocol and icons through ElementCallIconRenderingProtocol. CompoundDesignTokens is fine."
     severity: error
 
-  # Per-module, not package-wide. ElementCallMatrix exists to speak to the SDK, so
-  # the rule would protect nothing there. It earns its keep in the media, lifecycle
-  # and view modules, where an SDK dependency would be pure coupling.
+  # The package carries no Matrix SDK at all: the host implements the core's MatrixBackend over its
+  # own, so a host's SDK bump never waits on a release of ours. Only the example's reference backend,
+  # and its tests, speak to the SDK.
   no_matrix_sdk_dependency:
     regex: "import MatrixRustSDK"
-    message: "Only ElementCallMatrix may import MatrixRustSDK. Elsewhere, go through ElementCallMatrixTransportProtocol."
+    message: "The package must not import MatrixRustSDK: the host implements the core's MatrixBackend. Only the example's reference backend may."
     severity: error
-    # ElementCallMatrix exists to speak to the SDK. Tests are excluded too: the rule guards what a
-    # host ends up linking, and a test bundle is not shipped, so a test asserting on ClientError
-    # classification legitimately imports it.
-    excluded: "(Sources/ElementCallMatrix|Tests)/.*"
+    excluded: "Example/(ElementCallExample/Matrix|ElementCallExampleTests)/.*"

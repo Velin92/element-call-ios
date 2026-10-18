@@ -27,14 +27,15 @@ constraints an agent working here must not break.
 | `ElementCallKit` | Capture, render, packers, audio engine, key handling. | the RTC core |
 | `ElementCallHost` | Call lifecycle, spotlight, Picture in Picture, and the ports. | nothing |
 | `ElementCallUI` | Stage, tiles, controls, minimized bar. | design tokens |
-| `ElementCallMatrix` | A ready-made Matrix transport over the Rust SDK. | the Matrix SDK |
 
-`ElementCallMatrix` is the only module that knows the Matrix SDK exists, and SwiftLint enforces that.
+No module knows the Matrix SDK exists, and SwiftLint enforces that: the host implements the core's
+`MatrixBackend` over its own client, so a host's SDK bump never waits on a release of this package.
 
 **`ElementCall` itself is the umbrella**: a module containing nothing but `@_exported import` of the
-four. A host that wants the whole thing takes that one dependency and writes one `import ElementCall`,
-which is why the bare name belongs to it rather than to a layer. The four remain published, so a host
-that only wants the media layer can still depend on `ElementCallKit` alone.
+three and of the core's bindings, which a host needs to implement `MatrixBackend`. A host that wants
+the whole thing takes that one dependency and writes one `import ElementCall`, which is why the bare
+name belongs to it rather than to a layer. The three remain published, so a host that only wants the
+media layer can still depend on `ElementCallKit` alone.
 
 `ElementCallHost` holds the ports a host implements and the lifecycle it drives; it is not the host's
 own module, and a host that imports the umbrella never names it. It was called `ElementCall`, and the
@@ -67,35 +68,37 @@ dependencies:
     product: ElementCall
 ```
 
-Then give it an SDK `Client` and a handful of small conformances, and you get a call.
+Then give it the core's `MatrixBackend` and a handful of small conformances, and you get a call.
+[`Example/ElementCallExample/Matrix/SdkMatrixBackend.swift`](Example/ElementCallExample/Matrix/SdkMatrixBackend.swift)
+is a backend over the Rust SDK's `Client`, unit-tested, to copy into your app.
 
 ```swift
-let stack = ElementCallStack(transport: ElementCallSDKTransport(client: client, logger: logger)!,
-                             system: MyCallKitAdapter(),
-                             options: MyOptions(),
-                             style: ElementCallStyle(theme: MyTheme(),
-                                                     icons: MyIcons(),
-                                                     avatars: MyAvatars()),
-                             logger: logger)
+let controller = ElementCallController(backend: SdkMatrixBackend(client: client, logger: logger)!,
+                                       system: MyCallKitAdapter(),
+                                       options: MyOptions(),
+                                       style: ElementCallStyle(theme: MyTheme(),
+                                                               icons: MyIcons(),
+                                                               avatars: MyAvatars()),
+                                       logger: logger)
 ```
 
 Then start a call and present the screen:
 
 ```swift
-stack.controller.startCall(ElementCallData(isAudioCall: false, isStartingCall: true),
-                           room: MyRoomContext(roomID: roomID))
+controller.startCall(ElementCallData(isAudioCall: false, isStartingCall: true),
+                     room: MyRoomContext(roomID: roomID))
 
-ElementCallScreen(viewModel: ElementCallScreenViewModel(controller: stack.controller))
+ElementCallScreen(viewModel: ElementCallScreenViewModel(controller: controller))
 ```
 
-There is nothing to start. A call opens its room through the transport, the core subscribes to what
-the room needs, and the room is closed again when the call ends.
+There is nothing to start. When a call opens its room, the core subscribes through the backend to
+what the room needs, and cancels those subscriptions when the call ends.
 
 ### What the host provides
 
 | Port | What you supply | Turnkey? |
 | --- | --- | --- |
-| `ElementCallMatrixTransportProtocol` | rooms (`ElementCallMatrixRoomProtocol`: every send and feed), to-device, OpenID | **yes**, use `ElementCallSDKTransport` |
+| `MatrixBackend` (the core's) | every room send and feed, to-device, OpenID, RTC transports | copy `SdkMatrixBackend` from `Example/` |
 | `ElementCallSystemProvidingProtocol` | CallKit, plus audio-session and mute events coming back | no |
 | `ElementCallRoomContextProtocol` | room display name, direct flag, member profiles | no |
 | `ElementCallAvatarRenderingProtocol` | avatar views, so they match your app | no |
@@ -103,7 +106,7 @@ the room needs, and the room is closed again when the call ends.
 | `ElementCallLoggingProtocol` | a log sink | defaults provided |
 | `ElementCallOptions`, `ElementCallStrings` | feature flags and localised text | **values, not protocols** — construct one, every member defaulted |
 
-The four that are not turnkey are the ones only a host can answer. CallKit is process-wide and usually
+The ports that are not turnkey are the ones only a host can answer. CallKit is process-wide and usually
 shared with something else. Room metadata and avatars come from whatever caching layer the host
 already has, and what to call a room with no name is a product decision.
 
@@ -133,12 +136,8 @@ because it is the answer someone will reach for next time: the override travels 
 `ElementCallThemeProtocol` **port**, which is a protocol, and a protocol crosses a binary boundary perfectly
 well. `CompoundDesignTokens` is static values, so a duplicated copy costs binary size, not colours.
 
-The real reason is in `Package.swift`. `ElementCallSDKTransport.init?(client:)` takes a
-`MatrixRustSDK.Client`, so that module appears in the module interface — and the manifest declares
-`MatrixRustSDK` as a deliberately wide `"26.09.01" ..< "100.0.0"` because pinning it exactly "forces
-every consumer onto that version, so resolution fails the moment a host bumps the SDK before this
-package cuts a release". A prebuilt binary is compiled against whichever SDK version CI happened to
-have, of a Rust-generated API that turns over monthly, which re-imposes exactly that coupling.
+The real reason is cost: a binary needs library evolution across every public declaration, and
+nothing slow in a host's build would pay for it today.
 
 [RELEASING.md](RELEASING.md#why-there-are-no-artifacts-on-the-release-page) has the rest, including the
 one thing that would justify revisiting it.

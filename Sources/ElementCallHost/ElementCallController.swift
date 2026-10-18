@@ -9,6 +9,7 @@ import AVFoundation
 import Combine
 import ElementCallKit
 import Foundation
+import MatrixRtc
 import Observation
 import SwiftUI
 
@@ -41,8 +42,9 @@ public nonisolated enum ElementCallControllerAction: Sendable {
 /// Owns the call above the UI, so the call is a fact about the app rather than about the screen
 /// showing it: the full-screen view and a minimized bar are two renderings of one thing.
 ///
-/// One per user session, created with the ``ElementCallStack``. Mutations are funnelled through the
-/// main actor so the UI only ever sees whole snapshots.
+/// One per user session, built by the host and kept for the session's life. There is nothing to
+/// start: the core subscribes to a room, and to the media keys sent for it, when a call opens it.
+/// Mutations are funnelled through the main actor so the UI only ever sees whole snapshots.
 @Observable
 @MainActor
 public final class ElementCallController {
@@ -151,12 +153,15 @@ public final class ElementCallController {
     private var routeObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
     
-    init(rtcClient: MatrixRTCClient,
-         system: any ElementCallSystemProvidingProtocol,
-         options: ElementCallOptions,
-         style: ElementCallStyle,
-         logger: (any ElementCallLoggingProtocol)?) {
-        self.rtcClient = rtcClient
+    /// `backend` is the core's own Matrix port, implemented by the host over its SDK client. This
+    /// package carries no SDK of its own, so it never constrains which SDK version a host is on; the
+    /// example app's `SdkMatrixBackend` is the reference to copy.
+    public init(backend: any MatrixBackend,
+                system: any ElementCallSystemProvidingProtocol,
+                options: ElementCallOptions = .init(),
+                style: ElementCallStyle = .stock,
+                logger: (any ElementCallLoggingProtocol)? = nil) {
+        rtcClient = MatrixRTCClient(backend: backend)
         self.system = system
         self.options = options
         self.style = style

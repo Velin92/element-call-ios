@@ -20,10 +20,11 @@ knows, and what tends to go wrong.
 | `ElementCallKit` | the RTC core only | media, session, capture, render, keys |
 | `ElementCallHost` | nothing beyond the above | call lifecycle, Picture in Picture, **the ports** |
 | `ElementCallUI` | `CompoundDesignTokens` | stage, tiles, controls, minimized bar |
-| `ElementCallMatrix` | `MatrixRustSDK` | turnkey transport, widget-driver stopgap |
 
-1. **`MatrixRustSDK` only in `ElementCallMatrix`.** Everywhere else, go through
-   `ElementCallMatrixTransportProtocol`.
+1. **No `MatrixRustSDK`, in any module.** The host implements the core's own `MatrixBackend` over its
+   client and hands it to `ElementCallController`. A library that depends on the SDK holds back every
+   SDK bump of its host, so the only SDK code here is the reference backend in
+   `Example/ElementCallExample/Matrix`, which a host copies.
 2. **Never `import Compound`, in any module.** Its colours live on one shared instance the host
    re-brands at runtime; a copy linked here would never see the override and a re-branded host would
    get a stock-coloured call screen. `CompoundDesignTokens` is fine, being static values.
@@ -34,12 +35,15 @@ knows, and what tends to go wrong.
 SwiftLint enforces 1 and 2 at error severity. **If you need something from the host, add a port. Never
 add a dependency.**
 
-A fifth target, **`ElementCall`**, exists only to `@_exported import` the four above so a host takes
-one dependency and writes one import. It contains no code and must never contain any: it is a product
-convenience, not a fifth layer, and putting anything in it would put that thing outside every boundary
-in the table. Note the lint rules read comments too — they have no `match_kinds` — so naming the Matrix
-SDK in a comment anywhere outside `ElementCallMatrix` fails the build, and `Sources/ElementCall/` is
-not on the excluded path.
+A fourth target, **`ElementCall`**, exists only to `@_exported import` the three above, and the
+core's bindings a host needs to implement `MatrixBackend`, so a host takes one dependency and writes
+one import. **We own the core's version**: the host never declares `matrix-rust-rtc` itself, so a core
+bump here needs no edit in the host's manifest. Do not narrow the core re-export to a few types
+either; Android exposes the whole core to hosts too (`api(...)`). It contains no code and must never
+contain any: it is a product convenience, not a fourth layer, and putting anything in it would put
+that thing outside every boundary in the table. Note the lint rules read comments too — they have no
+`match_kinds` — so writing the SDK's import line in a comment anywhere outside the reference backend
+fails the build.
 
 **The bare name belongs to the umbrella, not to a layer.** It used to be the other way round — the
 lifecycle-and-ports module was `ElementCall` and the umbrella was `ElementCallAll` — and hosts kept
@@ -111,6 +115,8 @@ reason: **a gesture is the one thing the package's own tests cannot reach.** Eve
 in-process, but a double tap that is declared correctly and never arrives, because something above
 the tile claimed the touch first, looks identical to a working one from inside. Only a real touch
 tells them apart, and only XCUITest can send one, which needs an application and so a project.
+It also carries the reference `MatrixBackend` over the Rust SDK (see the core's Matrix backend,
+below), the one place this repository depends on the SDK.
 
 ```bash
 brew install xcodegen                       # once per machine
@@ -366,32 +372,26 @@ it.
 
 ## The core's Matrix backend
 
-The core reaches Matrix through one object, `MatrixRTCBackend`, which routes its flat, room-ID calls
-to the `ElementCallMatrixRoomProtocol` that `MatrixRTCClient` opened. Two things about it are easy to
-break:
+The core reaches Matrix through the host's `MatrixBackend`, passed straight to the core's
+`RtcClient`; there is no adapter of ours in between. `SdkMatrixBackend` in the example is the
+reference, and three things about any backend are easy to break:
 
-- **Every set-shaped feed of a room delivers its current set first, an empty one included.** The
+- **Every set-shaped subject of a room delivers its current set first, an empty one included.** The
   core treats a room as ready only once each subject has delivered once, and has no deadline of its
   own; holding back an empty set makes the join hang until `MatrixRTCClient.seedingTimeout`. The
   joined members are the exception that proves it: they always include us, so an empty read is the
   store not having loaded and is rightly held back.
-- **Failures are passed on, never classified.** `MatrixRTCTransportError.failed` carries the
-  homeserver's `errcode` and status; the core decides which refusals retire the delayed leave.
+- **Failures are passed on, never classified.** `FfiBackendError.Failed` carries the homeserver's
+  `errcode` and status; the core decides which refusals retire a feature for the session.
+- **No delayed events yet.** The SDK's bindings lack them (matrix-rust-sdk#6973), so the reference
+  backend refuses with `M_UNRECOGNIZED`, which the core reads as a homeserver without MSC4140: it
+  joins without a dead man's switch and shortens the membership's lifetime. The call keeps to the
+  room-state format because `m.rtc.slot` is not in sliding sync's `required_state`.
 
-The room is closed only after `MatrixRTCRoom.shutdown()`, because the core leaves through it.
-
-## What is temporary
-
-`Sources/ElementCallMatrix/Widget/` drives the SDK's widget driver in process as a stand-in for
-bindings the released SDK lacks: delayed events, room-state and timeline feeds, to-device messaging. It
-is **scheduled for deletion**, and `WidgetMatrixBridge.swift`'s header lists the exact bindings that
-retire it and the removal steps. Do not build new features on it, and do not let it leak past
-`ElementCallSDKTransport` and `ElementCallSDKRoom`.
-
-`openBridge`, reached only through `openRoom`, is the **only** place a bridge is created,
-deliberately. An earlier version had two creation paths and only one wired up the to-device pump, so
-media keys reached nobody and every remote tile went black. The bridge and its pump are one value now
-so the type system forbids that. Keep it that way.
+The reference backend is compiled into the example app and never run there, since the harness has no
+client; its mappings are tested in `Example/ElementCallExampleTests`, a hostless bundle that compiles
+the backend's sources itself. Hosted in the app it could not link: the SDK values the tests build are
+stripped from an app that never makes them.
 
 ---
 
@@ -419,10 +419,10 @@ so the type system forbids that. Keep it that way.
   carry the suffix throughout. Uniform rather than selective, so the rule can be stated in one line
   — including on the four that read as capabilities and so double up a little. **Do not "correct"
   these back**; the concrete types that implement them (`ElementCallTokenTheme`,
-  `ElementCallSDKTransport`, the `ElementCallFake*` family) keep plain names, which is what makes the
-  suffix carry information. So does a port that is a plain value rather than something a host
+  `ElementCallFakeMatrixBackend`, the rest of the `ElementCallFake*` family) keep plain names, which
+  is what makes the suffix carry information. So does a port that is a plain value rather than something a host
   implements — `ElementCallOptions` and `ElementCallStrings` are structs with every member defaulted,
-  and the suffix would be a lie on them.
+  and the suffix would be a lie on them. The core's `MatrixBackend` is not ours and keeps its name.
 - `MatrixRTC*` prefixed types name **protocol** concepts and keep that prefix. `ElementCall*` names our
   own API. Note the casing: the initialism is uniform, per the API design guidelines below. The
   bindings' own module is `MatrixRtc`, spelled exactly that way, and `import MatrixRtc` plus the

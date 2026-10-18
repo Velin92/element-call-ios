@@ -29,20 +29,18 @@ that reason as much as for keeping a reviewer's diff small.
 
 ## The boundaries this package defends
 
-Three of the four modules must compile knowing nothing about the host application, and one of them is
-allowed to know the SDK:
+The three modules must compile knowing nothing about the host application, its SDK included:
 
 | Module | May import |
 | --- | --- |
 | `ElementCallKit` | the RTC core only |
 | `ElementCallHost` | nothing beyond the RTC core |
 | `ElementCallUI` | the design **tokens** package |
-| `ElementCallMatrix` | the Matrix SDK |
 
 Concretely:
 
-- **`MatrixRustSDK` only in `ElementCallMatrix`.** That module exists to speak to the SDK, so the rule
-  would protect nothing there. Everywhere else, go through `ElementCallMatrixTransportProtocol`.
+- **Never `import MatrixRustSDK` in the package.** The host implements the core's `MatrixBackend`;
+  the only SDK code here is the reference backend in `Example/ElementCallExample/Matrix`.
 - **Never `import Compound`, anywhere.** Its colours live on a single shared instance the host
   re-brands at runtime, so a copy linked in here would never see the override and a re-branded host
   would get a stock-coloured call screen. Take colours through `ElementCallThemeProtocol` and icons through
@@ -121,7 +119,7 @@ workflow reads, so there is one place to change them.
 | --- | --- |
 | Pure logic | `Tests/ElementCallTests`, runs anywhere |
 | Snapshots from previews | same target, needs the pinned simulator |
-| Widget bridge wire protocol | same target, fakes the driver channel with a pair of pipes |
+| Reference SDK backend's mappings | `Example/ElementCallExampleTests`, hostless |
 | Real media call | needs the `demo/backend` docker stack from matrix-rust-rtc, run by hand |
 
 Add previews for every main state of a view, conform them to `TestablePreview`, and use

@@ -11,7 +11,14 @@ version will actually read it.
 
 ## Unreleased
 
-_Nothing yet._
+**The host brings the core's `MatrixBackend`, and the package no longer depends on the Matrix SDK.**
+`ElementCallMatrix` is gone, with `ElementCallSDKTransport`, `ElementCallMatrixTransportProtocol`,
+`ElementCallMatrixRoomProtocol` and their value types, and so is `ElementCallStack`: build
+`ElementCallController(backend:system:options:style:logger:)` once per session and hold it. Copy the
+three files in `Example/ElementCallExample/Matrix/` into your app for
+`SdkMatrixBackend(client:logger:)`, a backend over the Rust SDK's `Client`; `import ElementCall`
+brings the core's types it needs, so your manifest gains no dependency. Your SDK pin is now your own,
+as long as it is at least 26.10.15.
 
 ## 0.1.0-rc.11 - 2026-10-15
 

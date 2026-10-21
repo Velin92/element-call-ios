@@ -490,9 +490,7 @@ struct ElementCallView: View {
     /// A direct call's duration sits over the other person's picture or the scrim on it, where the
     /// secondary grey all but disappears; elsewhere the band behind the top bar is the canvas.
     private var durationColour: Color {
-        if context.viewState.isMediaDegraded {
-            style.theme.textCriticalPrimary
-        } else if context.viewState.isDirect {
+        if context.viewState.isDirect {
             style.theme.textPrimary
         } else {
             style.theme.textSecondary

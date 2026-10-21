@@ -144,6 +144,10 @@ public nonisolated struct ElementCallStrings: Sendable {
     public var joinRefused: String
     /// What a screen reader says for a control an interruption has disabled (034 R15).
     public var unavailable: String
+    /// What a screen reader says for a tile's loading indicator: the connection carrying the
+    /// member's media is being re-established, or their media cannot be decrypted (034 R40).
+    public var mediaReconnecting: String
+    public var mediaUndecryptable: String
     
     public init(you: String = "You",
                 error: String = "Error",
@@ -159,7 +163,9 @@ public nonisolated struct ElementCallStrings: Sendable {
                 connectionNeverEstablished: String = "Could not connect to the media server",
                 joinTimedOut: String = "Your server did not respond in time",
                 joinRefused: String = "Your server refused to let you join",
-                unavailable: String = "Unavailable") {
+                unavailable: String = "Unavailable",
+                mediaReconnecting: String = "Reconnecting",
+                mediaUndecryptable: String = "Waiting for encryption keys") {
         self.you = you
         self.error = error
         self.stop = stop
@@ -175,6 +181,8 @@ public nonisolated struct ElementCallStrings: Sendable {
         self.joinTimedOut = joinTimedOut
         self.joinRefused = joinRefused
         self.unavailable = unavailable
+        self.mediaReconnecting = mediaReconnecting
+        self.mediaUndecryptable = mediaUndecryptable
     }
     
     /// The text for a failure.

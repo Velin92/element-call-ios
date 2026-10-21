@@ -97,3 +97,61 @@ struct InterruptedControlsTests {
         #expect(state.isScreenShareControlEnabled)
     }
 }
+
+/// What a tile shows while its media does not arrive (034 R23, R29, R33, R34, C6).
+@Suite("Interrupted tiles")
+@MainActor
+struct InterruptedTileTests {
+    private func tiles(_ remote: MatrixRTCTile, own: MatrixRTCTile? = nil, withinKeyGrace: Set<String> = []) -> [ElementCallTile] {
+        ElementCallScreenViewModel.tiles(roster: MatrixRTCTileRoster([remote]),
+                                         own: own,
+                                         profiles: [:],
+                                         youLabel: "You",
+                                         isLocalMicrophoneMuted: false,
+                                         localHasVideo: true,
+                                         withinKeyGrace: withinKeyGrace)
+    }
+    
+    private func bob(connection: MatrixRTCConnectionState = .connected, isDecryptable: Bool = true) -> MatrixRTCTile {
+        MatrixRTCTile(id: MatrixRTCTileID(memberID: "@bob:x:B"), userID: "@bob:x", hasVideo: true, connection: connection, isDecryptable: isDecryptable)
+    }
+    
+    @Test
+    func eachCauseIsTheTilesState() {
+        #expect(tiles(bob()).first?.mediaState == .live)
+        #expect(tiles(bob(connection: .reconnecting)).first?.mediaState == .reconnecting)
+        #expect(tiles(bob(connection: .unreachable)).first?.mediaState == .reconnecting)
+        #expect(tiles(bob(isDecryptable: false)).first?.mediaState == .undecryptable)
+    }
+    
+    /// Nothing decrypts over a connection that is down, so the connection is the one to say.
+    @Test
+    func aLostConnectionWinsOverDecryption() {
+        #expect(tiles(bob(connection: .reconnecting, isDecryptable: false)).first?.mediaState == .reconnecting)
+    }
+    
+    /// Every join rotates the keys, and for up to `delayBeforeUse` nobody decrypts the newcomer.
+    @Test
+    func aNewcomerIsNotUndecryptableYet() {
+        #expect(tiles(bob(isDecryptable: false), withinKeyGrace: ["@bob:x:B"]).first?.mediaState == .live)
+        #expect(tiles(bob(connection: .reconnecting), withinKeyGrace: ["@bob:x:B"]).first?.mediaState == .reconnecting)
+    }
+    
+    @Test
+    func ourOwnTileCarriesOurMediaServer() {
+        let own = MatrixRTCTile(id: MatrixRTCTileID(memberID: "@me:x:M"), userID: "@me:x", isLocal: true, hasVideo: true, connection: .reconnecting)
+        let mine = tiles(bob(), own: own).first
+        #expect(mine?.isLocal == true)
+        #expect(mine?.mediaState == .reconnecting)
+        // Our picture is the camera in our hand, so it is never gated off.
+        #expect(mine?.hasVideo == true)
+    }
+    
+    @Test
+    func theGraceRunsFromArrival() {
+        let start = ContinuousClock.now
+        let arrivals = ["early": start, "late": start + .seconds(4)]
+        let now = start + ElementCallScreenViewModel.keyArrivalGrace + .milliseconds(1)
+        #expect(ElementCallScreenViewModel.membersWithinKeyGrace(arrivals: arrivals, now: now) == ["late"])
+    }
+}

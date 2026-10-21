@@ -16,24 +16,26 @@ public nonisolated struct ElementCallTile: Identifiable, Equatable, Sendable {
     /// `ForEach` identity, so two tiles sharing one would collapse into a single view.
     public let id: MatrixRTCTileID
     public let userID: String
-    public let displayName: String
-    public let avatarURL: URL?
+    public internal(set) var displayName: String
+    public internal(set) var avatarURL: URL?
     public let isLocal: Bool
     /// Cannot be heard: muted, or no microphone stream reached us at all. The badge collapses the
     /// two on purpose; the stats overlay keeps them apart, where the question is why.
-    public let isMicrophoneMuted: Bool
+    public internal(set) var isMicrophoneMuted: Bool
     /// This tile's own stream is present and unmuted. On a share tile it is the share.
-    public let hasVideo: Bool
+    public internal(set) var hasVideo: Bool
     /// Loud enough to count as talking. A threshold crossing, not a level: nothing continuous
     /// belongs in a tile, which the whole screen is rebuilt to redraw.
-    public let isSpeaking: Bool
+    public internal(set) var isSpeaking: Bool
     /// The hand's place in the queue, as the core numbers it (009 R6); nil with the hand down, or
     /// where no hand is shown (R33).
-    public let handPosition: Int?
+    public internal(set) var handPosition: Int?
     /// The model marks the tile worth the largest slot — a screen share today, a pin later. It does
     /// not choose a spotlight; `ElementCallSpotlight` is where that is decided.
-    public let isHero: Bool
-    public let stats: String?
+    public internal(set) var isHero: Bool
+    public internal(set) var stats: String?
+    /// Whether this tile's media is arriving and can be shown (034 R29, R33, R34).
+    public internal(set) var mediaState: ElementCallTileMediaState = .live
     
     public var memberID: String {
         id.memberID
@@ -50,6 +52,22 @@ public nonisolated struct ElementCallTile: Identifiable, Equatable, Sendable {
     public var hasHandRaised: Bool {
         handPosition != nil
     }
+    
+    /// The name tag's loading indicator shows, and a remote tile draws the avatar rather than its
+    /// last frame. Our own tile keeps its live preview, which is local capture (034 R34).
+    public var isMediaInterrupted: Bool {
+        mediaState != .live
+    }
+}
+
+/// Why a tile's media is not reaching the screen, if it is not.
+public nonisolated enum ElementCallTileMediaState: Equatable, Sendable {
+    case live
+    /// The connection carrying it is being re-established, or nothing can reach it. On our own
+    /// tile, our own media server (034 R23).
+    case reconnecting
+    /// It arrives, and cannot be decrypted (034 R33).
+    case undecryptable
 }
 
 /// A message the screen shows once and then forgets. Replaces the host's alert type so the package
@@ -90,7 +108,6 @@ public nonisolated struct ElementCallScreenViewState: Equatable, Sendable {
     /// Everywhere the call can come out of, external hardware first. See `ElementCallController`.
     public var audioOutputs: [CallAudioOutput] = []
     public var audioOutput: CallAudioOutput?
-    public var isMediaDegraded = false
     public var isTileStatsVisible = false
     public var isDeveloperModeEnabled = false
     public var isScreenSharingEnabled = false
@@ -192,48 +209,24 @@ extension ElementCallTile {
     /// it on means rewriting the tiles rather than setting a flag; a live screen rebuilds them from
     /// receive statistics on every refresh, and the harness has to do the same by hand.
     func withStats(_ stats: String?) -> ElementCallTile {
-        ElementCallTile(id: id,
-                        userID: userID,
-                        displayName: displayName,
-                        avatarURL: avatarURL,
-                        isLocal: isLocal,
-                        isMicrophoneMuted: isMicrophoneMuted,
-                        hasVideo: hasVideo,
-                        isSpeaking: isSpeaking,
-                        handPosition: handPosition,
-                        isHero: isHero,
-                        stats: stats)
+        var tile = self
+        tile.stats = stats
+        return tile
     }
     
     /// A copy with no hand shown, whoever's tile it is; the hand is still up (009 R33).
     nonisolated func withHandHidden() -> ElementCallTile {
-        ElementCallTile(id: id,
-                        userID: userID,
-                        displayName: displayName,
-                        avatarURL: avatarURL,
-                        isLocal: isLocal,
-                        isMicrophoneMuted: isMicrophoneMuted,
-                        hasVideo: hasVideo,
-                        isSpeaking: isSpeaking,
-                        handPosition: nil,
-                        isHero: isHero,
-                        stats: stats)
+        var tile = self
+        tile.handPosition = nil
+        return tile
     }
     
     /// Our own hand, for the harness, which has no call to read it back from.
     func withHandPosition(_ handPosition: Int?) -> ElementCallTile {
         guard isLocal else { return self }
-        return ElementCallTile(id: id,
-                               userID: userID,
-                               displayName: displayName,
-                               avatarURL: avatarURL,
-                               isLocal: isLocal,
-                               isMicrophoneMuted: isMicrophoneMuted,
-                               hasVideo: hasVideo,
-                               isSpeaking: isSpeaking,
-                               handPosition: handPosition,
-                               isHero: isHero,
-                               stats: stats)
+        var tile = self
+        tile.handPosition = handPosition
+        return tile
     }
     
     /// Our own mute and camera, taken from the controls rather than from the tile; anyone else's
@@ -244,17 +237,10 @@ extension ElementCallTile {
     /// tile exactly as a real one does.
     func withLocalMedia(isMicrophoneMuted: Bool, hasVideo: Bool) -> ElementCallTile {
         guard isLocal else { return self }
-        return ElementCallTile(id: id,
-                               userID: userID,
-                               displayName: displayName,
-                               avatarURL: avatarURL,
-                               isLocal: isLocal,
-                               isMicrophoneMuted: isMicrophoneMuted,
-                               hasVideo: hasVideo,
-                               isSpeaking: isSpeaking,
-                               handPosition: handPosition,
-                               isHero: isHero,
-                               stats: stats)
+        var tile = self
+        tile.isMicrophoneMuted = isMicrophoneMuted
+        tile.hasVideo = hasVideo
+        return tile
     }
 }
 

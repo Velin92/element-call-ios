@@ -98,6 +98,26 @@ public final class ElementCallController {
         return call?.interruptions.signalling ?? .reachable
     }
     
+    /// The service interruptions list, which the stage's indicator and the minimized bar both show
+    /// (034 R13, R35, R37). Empty until some cause has lasted ``interruptionHold``, and emptied
+    /// the moment none is left.
+    public private(set) var interruptions: [ElementCallInterruption] = []
+    
+    /// How long a cause has to last before the list shows it. The indicator is an alarm for the
+    /// whole call: a blip shorter than this is nothing the user can act on, an indicator that
+    /// comes up at every one is soon ignored, and a screen reader announces each coming and going
+    /// (R40). Once up the list follows the causes without a wait, and the tiles never wait for it:
+    /// what a tile shows is about that tile.
+    ///
+    /// This also covers our first connection to our media server, which the core reports as a
+    /// reconnection (C11) and which used to put the indicator up at the start of every call.
+    public static let interruptionHold: Duration = .milliseconds(2500)
+    
+    /// What the hold is timed on; a test's manual clock.
+    @ObservationIgnored var clock: any Clock<Duration> = ContinuousClock()
+    @ObservationIgnored private var interruptionsTask: Task<Void, Never>?
+    @ObservationIgnored private(set) var interruptionHoldTask: Task<Void, Never>?
+    
     private var followedSignalling: MatrixRTCSignallingHealth = .reachable
     
     /// Our membership in the room's call, from the join until the call ends.
@@ -272,6 +292,7 @@ public final class ElementCallController {
         }
         
         followSignalling()
+        followInterruptions()
         runTask = Task { await runCall(callData, room: room) }
     }
     
@@ -658,7 +679,7 @@ public final class ElementCallController {
         startAudioIfReady()
     }
     
-    private func followSignalling() {
+    func followSignalling() {
         signallingTask?.cancel()
         let updates = rtcClient.signallingUpdates()
         signallingTask = Task { [weak self] in
@@ -668,6 +689,50 @@ public final class ElementCallController {
                     log(.info, "signalling \(health)")
                     followedSignalling = health
                 }
+            }
+        }
+    }
+    
+    func followInterruptions() {
+        interruptionsTask?.cancel()
+        interruptionsTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                await withCheckedContinuation { continuation in
+                    withObservationTracking {
+                        self.hold(self.currentInterruptions)
+                    } onChange: {
+                        continuation.resume()
+                    }
+                }
+            }
+        }
+    }
+    
+    private var currentInterruptions: [ElementCallInterruption] {
+        ElementCallInterruption.entries(signalling: signalling,
+                                        record: call?.interruptions,
+                                        withinKeyGrace: call?.membersWithinKeyGrace ?? [])
+    }
+    
+    /// Publishes `entries` once something has been interrupted for the hold, and at once while
+    /// the list is already up or when nothing is.
+    private func hold(_ entries: [ElementCallInterruption]) {
+        if entries.isEmpty {
+            interruptionHoldTask?.cancel()
+            interruptionHoldTask = nil
+            if !interruptions.isEmpty {
+                interruptions = []
+            }
+        } else if !interruptions.isEmpty {
+            if entries != interruptions {
+                interruptions = entries
+            }
+        } else if interruptionHoldTask == nil {
+            interruptionHoldTask = clock.schedule(after: Self.interruptionHold) { [weak self] in
+                guard let self else { return }
+                interruptionHoldTask = nil
+                interruptions = currentInterruptions
             }
         }
     }
@@ -801,6 +866,11 @@ public final class ElementCallController {
         signallingTask?.cancel()
         signallingTask = nil
         followedSignalling = .reachable
+        interruptionsTask?.cancel()
+        interruptionsTask = nil
+        interruptionHoldTask?.cancel()
+        interruptionHoldTask = nil
+        interruptions = []
         pictureInPicture.unbind()
         
         let endedCall = rtcCall
@@ -891,5 +961,19 @@ public final class ElementCallController {
         // real one would: the camera reads as on for a video call from the moment it is joining,
         // which is what it will join with.
         pendingCameraEnabled = !callData.isAudioCall
+    }
+}
+
+private extension Clock where Duration == Swift.Duration {
+    /// Runs `body` on the main actor once `duration` has passed on this clock, unless cancelled
+    /// first. The deadline is taken now, so a manual clock advanced before the task first runs
+    /// still fires it.
+    func schedule(after duration: Duration, _ body: @escaping @MainActor () -> Void) -> Task<Void, Never> {
+        let deadline = now.advanced(by: duration)
+        return Task { @MainActor in
+            try? await sleep(until: deadline, tolerance: nil)
+            guard !Task.isCancelled else { return }
+            body()
+        }
     }
 }

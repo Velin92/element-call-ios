@@ -5,7 +5,6 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-import ElementCallHost
 import ElementCallKit
 import Foundation
 
@@ -30,13 +29,11 @@ public nonisolated enum ElementCallInterruption: Hashable, Sendable {
     /// outage has a server entry and no record yet. Members in `withinKeyGrace` are not counted as
     /// undecryptable: see ``MatrixRTCMediaSession/keyGrace``.
     ///
-    /// Our media has no entry until it has connected once. The core reports the first connection
-    /// to our SFU as a reconnection (C11), so every call would otherwise open with the indicator up
-    /// for the seconds that takes, while the call is still connecting and says so already.
+    /// These are the causes as they stand; what the screen shows is
+    /// ``ElementCallController/interruptions``, which holds them back for a moment first.
     static func entries(signalling: MatrixRTCSignallingHealth,
                         record: MatrixRTCInterruptions?,
-                        withinKeyGrace: Set<String> = [],
-                        hasMediaConnected: Bool = true) -> [ElementCallInterruption] {
+                        withinKeyGrace: Set<String> = []) -> [ElementCallInterruption] {
         var entries: [ElementCallInterruption] = []
         var record = record ?? .none
         record.undecryptable.removeAll { withinKeyGrace.contains($0) }
@@ -44,22 +41,12 @@ public nonisolated enum ElementCallInterruption: Hashable, Sendable {
         if !signalling.isReachable || record.isOwnMembershipLapsed {
             entries.append(.ownServer(isMembershipLapsed: record.isOwnMembershipLapsed))
         }
-        if hasMediaConnected, record.ownMedia != .connected {
+        if record.ownMedia != .connected {
             entries.append(.ownMedia)
         }
         if !record.membersReconnecting.isEmpty || !record.membersUnreachable.isEmpty || !record.undecryptable.isEmpty {
             entries.append(.othersMedia)
         }
         return entries
-    }
-    
-    /// The entries for a controller's call, as the stage and the minimized bar both show them.
-    @MainActor
-    static func entries(for controller: ElementCallController) -> [ElementCallInterruption] {
-        guard controller.isInCall else { return [] }
-        return entries(signalling: controller.signalling,
-                       record: controller.call?.interruptions,
-                       withinKeyGrace: controller.call?.membersWithinKeyGrace ?? [],
-                       hasMediaConnected: controller.connectedAt != nil)
     }
 }

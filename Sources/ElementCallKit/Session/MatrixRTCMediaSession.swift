@@ -45,10 +45,13 @@ public final class MatrixRTCMediaSession {
     ///
     /// Counted from the start of each spell rather than from a member's arrival, which is what it
     /// was first: on a real call the blips came from members already present, at every join and
-    /// leave, and a newcomer's media can come seconds after their membership. Here rather than in a
-    /// view so the stage and the minimized bar agree, and on the call's clock so a scenario can step
-    /// past it.
-    public static let keyGrace: Duration = .seconds(5)
+    /// leave, and a newcomer's media can come seconds after their membership. Short, because it is
+    /// for the tiles: an interrupted tile trades its picture for the avatar, and every tile doing
+    /// that at once for each rotation is what it prevents. The rotations seen on a real call lasted
+    /// under a second. The indicator has a hold of its own on top
+    /// (`ElementCallController.interruptionHold`). Here rather than in a view so the tiles and the
+    /// list agree, and on the call's clock so a scenario can step past it.
+    public static let keyGrace: Duration = .milliseconds(1500)
     
     /// Our own tile — and the reason this is not simply `localState?.tile`.
     ///

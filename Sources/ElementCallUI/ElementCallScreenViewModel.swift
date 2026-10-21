@@ -309,7 +309,7 @@ public final class ElementCallScreenViewModel {
         state.isSignallingReachable = controller.signalling.isReachable
         state.isOwnMediaReconnecting = (controller.call?.interruptions.ownMedia ?? .connected) != .connected
         // Above the guard as well: the server entry is the one that exists before media does.
-        state.interruptions = ElementCallInterruption.entries(for: controller)
+        state.interruptions = controller.interruptions
         
         if let message = controller.errorMessage {
             context.alertInfo = ElementCallAlert(title: context.style.strings.error, message: message)

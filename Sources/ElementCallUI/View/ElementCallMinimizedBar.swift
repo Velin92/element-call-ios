@@ -74,7 +74,7 @@ public struct ElementCallMinimizedBar: View {
     }
     
     private var isInterrupted: Bool {
-        !ElementCallInterruption.entries(for: controller).isEmpty
+        !controller.interruptions.isEmpty
     }
     
     /// A room opened moments ago may not have its name yet, so the bar follows it rather than

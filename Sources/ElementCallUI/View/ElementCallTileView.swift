@@ -261,6 +261,13 @@ struct ElementCallTileView: View, Equatable {
                     ElementCallSoundWaves(isSpeaking: tile.isSpeaking, avatarDiameter: Self.largeAvatarDiameter)
                 }
                 avatar
+                if appearance == .fullBleed, tile.isMediaInterrupted {
+                    // Under the avatar rather than in the corner where other nameless tiles carry
+                    // it: this tile's corner is under the control bar and the home indicator
+                    // (019 R4). Provisional until design places it.
+                    badge { mediaIndicator }
+                        .offset(y: Self.largeAvatarDiameter / 2 + 24)
+                }
             }
         }
         // The clip shape clips hit testing with it, so without this the corners do not answer.
@@ -381,7 +388,7 @@ struct ElementCallTileView: View, Equatable {
             }
             Spacer()
             HStack(alignment: .bottom, spacing: 4) {
-                if isNameHidden, tile.isMediaInterrupted {
+                if isNameHidden, tile.isMediaInterrupted, appearance != .fullBleed {
                     // Our floating tile, and every other tile drawn without a name, carry the
                     // indicator on its own where the name tag would be (034 R23).
                     badge { mediaIndicator }
@@ -682,14 +689,15 @@ struct ElementCallTileView_Previews: PreviewProvider, TestablePreview {
     static func tileView(_ tile: ElementCallTile,
                          appearance: ElementCallTileAppearance = .card,
                          isSpotlight: Bool = false,
-                         isNameHidden: Bool = false) -> some View {
+                         isNameHidden: Bool = false,
+                         size: CGSize = CGSize(width: 180, height: 240)) -> some View {
         ElementCallTileView(tile: tile,
                             callProvider: Fixtures.noCall,
                             isSpotlight: isSpotlight,
                             appearance: appearance,
                             memberCount: 4,
                             isNameHidden: isNameHidden) { _ in }
-            .frame(width: 180, height: 240)
+            .frame(width: size.width, height: size.height)
             .environment(\.colorScheme, .dark)
     }
     
@@ -717,6 +725,9 @@ struct ElementCallTileView_Previews: PreviewProvider, TestablePreview {
             .previewDisplayName("Spotlight undecryptable")
         tileView(Fixtures.tile("You", isLocal: true, hasVideo: true, mediaState: .reconnecting), appearance: .floating, isNameHidden: true)
             .previewDisplayName("Our own tile reconnecting")
+        tileView(Fixtures.tile("Dan", hasVideo: true, mediaState: .reconnecting), appearance: .fullBleed, isNameHidden: true,
+                 size: CGSize(width: 375, height: 667))
+            .previewDisplayName("Full bleed reconnecting")
         tileView(Fixtures.tile("Grace", stats: "640x360 @ 30 fps\nasked 640x360\ne2ee: ok\npkts 1200 lost 3"))
             .previewDisplayName("With stats")
         // Bare on purpose: its chrome is ``ElementCallFullscreenChrome``, drawn by the screen.

@@ -527,7 +527,7 @@ public final class ElementCallController {
         
         let call: MatrixRTCMediaSession
         do {
-            call = try await rtcCall.connectMedia()
+            call = try await rtcCall.connectMedia(isSFUFallbackEnabled: options.isSFUFallbackEnabled)
         } catch {
             fail("Media failed: \(error)")
             return

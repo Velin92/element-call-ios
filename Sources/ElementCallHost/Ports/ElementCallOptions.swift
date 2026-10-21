@@ -60,19 +60,28 @@ public nonisolated struct ElementCallOptions: Sendable {
     /// Join and leave sounds have no off switch, as on web; this is the only thing that quiets them.
     /// Any switch for other sound effects, such as reactions, is a separate option.
     public var participantCapForJoinLeaveSounds: Int
+    /// Whether our media may move to another member's media server once ours has been down for
+    /// ten seconds while the homeserver answers and a peer's server is up (034 R25). Off by
+    /// default, because it only works where that server accepts users from other homeservers, and
+    /// which deployments do is something only the host can know: the homeserver's transport list
+    /// cannot say, since the SDK drops every field of a LiveKit entry but its URL. Read when media
+    /// connects.
+    public var isSFUFallbackEnabled: Bool
     
     public init(isPictureInPictureEnabled: Bool = true,
                 membershipFormat: MatrixRTCMembershipFormat = .roomState,
                 isDeveloperModeEnabled: Bool = false,
                 isScreenSharingEnabled: Bool = false,
                 isAutomaticPictureInPictureForAudioCallsEnabled: Bool = false,
-                participantCapForJoinLeaveSounds: Int = MatrixRTCMediaSession.defaultParticipantCapForJoinLeaveSounds) {
+                participantCapForJoinLeaveSounds: Int = MatrixRTCMediaSession.defaultParticipantCapForJoinLeaveSounds,
+                isSFUFallbackEnabled: Bool = false) {
         self.isPictureInPictureEnabled = isPictureInPictureEnabled
         self.membershipFormat = membershipFormat
         self.isDeveloperModeEnabled = isDeveloperModeEnabled
         self.isScreenSharingEnabled = isScreenSharingEnabled
         self.isAutomaticPictureInPictureForAudioCallsEnabled = isAutomaticPictureInPictureForAudioCallsEnabled
         self.participantCapForJoinLeaveSounds = participantCapForJoinLeaveSounds
+        self.isSFUFallbackEnabled = isSFUFallbackEnabled
     }
 }
 

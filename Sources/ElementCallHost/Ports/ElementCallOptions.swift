@@ -189,11 +189,12 @@ public nonisolated struct ElementCallStrings: Sendable {
                 mediaUndecryptable: String = "Waiting for encryption keys",
                 interruptions: String = "Service interruptions",
                 interruptionsResolved: String = "Connection restored",
-                ownServerUnreachable: String = "Your server can\u{2019}t be reached. You can still see and hear everyone.",
-                ownServerLapsed: String = "Your server can\u{2019}t be reached, and the others can no longer see or hear you. Waiting for your server.",
+                ownServerUnreachable: String = "Your server is unreachable. Some services are temporarily unavailable.",
+                // The same as above until 034's Q5 settles whether a lapse stops our media at all.
+                ownServerLapsed: String = "Your server is unreachable. Some services are temporarily unavailable.",
                 unverifiedParticipant: String = "Someone has joined whose identity can\u{2019}t be checked until it\u{2019}s back.",
-                ownMediaReconnecting: String = "Reconnecting your audio and video\u{2026}",
-                othersMediaInterrupted: String = "Some people\u{2019}s audio or video isn\u{2019}t reaching you.") {
+                ownMediaReconnecting: String = "Reconnecting your audio and video",
+                othersMediaInterrupted: String = "Some participants\u{2019} audio or video isn\u{2019}t reaching you") {
         self.you = you
         self.error = error
         self.stop = stop

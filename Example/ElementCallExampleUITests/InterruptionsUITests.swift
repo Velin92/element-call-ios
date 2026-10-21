@@ -45,7 +45,7 @@ final class InterruptionsUITests: XCTestCase {
         
         indicator.tap()
         XCTAssertTrue(list.waitForExistence(timeout: 5), "the tap reached the indicator and opened the list")
-        XCTAssertTrue(list.staticTexts.element(boundBy: 0).label.hasPrefix("Your server can\u{2019}t be reached"))
+        XCTAssertTrue(list.staticTexts.element(boundBy: 0).label.hasPrefix("Your server is unreachable"))
         
         let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: list)
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 45), .completed, "the list closes on its own when the last entry clears (R36)")

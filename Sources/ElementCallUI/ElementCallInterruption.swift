@@ -29,9 +29,14 @@ public nonisolated enum ElementCallInterruption: Hashable, Sendable {
     /// because it is the only cause that exists before media does (C4): a join made during an
     /// outage has a server entry and no record yet. Members in `arriving` are not counted as
     /// undecryptable: see ``MatrixRTCMediaSession/keyArrivalGrace``.
+    ///
+    /// Our media has no entry until it has connected once. The core reports the first connection
+    /// to our SFU as a reconnection (C11), so every call would otherwise open with the indicator up
+    /// for the seconds that takes, while the call is still connecting and says so already.
     static func entries(signalling: MatrixRTCSignallingHealth,
                         record: MatrixRTCInterruptions?,
-                        arriving: Set<String> = []) -> [ElementCallInterruption] {
+                        arriving: Set<String> = [],
+                        hasMediaConnected: Bool = true) -> [ElementCallInterruption] {
         var entries: [ElementCallInterruption] = []
         var record = record ?? .none
         record.undecryptable.removeAll { arriving.contains($0) }
@@ -39,7 +44,7 @@ public nonisolated enum ElementCallInterruption: Hashable, Sendable {
         if !signalling.isReachable || record.isOwnMembershipLapsed {
             entries.append(.ownServer(isMembershipLapsed: record.isOwnMembershipLapsed))
         }
-        if record.ownMedia != .connected {
+        if hasMediaConnected, record.ownMedia != .connected {
             entries.append(.ownMedia)
         }
         if !record.membersReconnecting.isEmpty || !record.membersUnreachable.isEmpty || !record.undecryptable.isEmpty {
@@ -54,6 +59,7 @@ public nonisolated enum ElementCallInterruption: Hashable, Sendable {
         guard controller.isInCall else { return [] }
         return entries(signalling: controller.signalling,
                        record: controller.call?.interruptions,
-                       arriving: controller.call?.membersWithinKeyArrivalGrace ?? [])
+                       arriving: controller.call?.membersWithinKeyArrivalGrace ?? [],
+                       hasMediaConnected: controller.connectedAt != nil)
     }
 }

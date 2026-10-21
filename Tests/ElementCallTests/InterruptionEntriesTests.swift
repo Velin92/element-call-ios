@@ -79,6 +79,14 @@ struct InterruptionEntriesTests {
         let record = MatrixRTCInterruptions(ownMedia: .unreachable)
         #expect(ElementCallInterruption.entries(signalling: .reachable, record: record) == [.ownMedia])
     }
+    
+    /// The core reports the first connection to our SFU as a reconnection (C11).
+    @Test
+    func theFirstConnectionIsNoInterruption() {
+        let record = MatrixRTCInterruptions(ownMedia: .reconnecting, membersReconnecting: ["@bob:x:B"])
+        #expect(ElementCallInterruption.entries(signalling: outage, record: record, hasMediaConnected: false)
+            == [.ownServer(isMembershipLapsed: false), .othersMedia])
+    }
 }
 
 /// What an interruption disables, and what it never does (034 R15).

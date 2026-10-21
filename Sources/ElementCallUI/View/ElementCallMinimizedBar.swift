@@ -42,7 +42,7 @@ public struct ElementCallMinimizedBar: View {
                 // room for one of them, and an outage is the more useful (034 R37). Tapping still
                 // restores the call rather than opening the list, which lives on the call screen.
                 if isInterrupted {
-                    style.icons.icon(.warning, size: .small, relativeTo: .bodySMSemibold)
+                    style.icons.icon(.info, size: .small, relativeTo: .bodySMSemibold)
                         .accessibilityHidden(true)
                     Text(style.strings.interruptions)
                         .lineLimit(1)

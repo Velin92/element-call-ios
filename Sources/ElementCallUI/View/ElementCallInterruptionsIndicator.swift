@@ -20,17 +20,22 @@ struct ElementCallInterruptionsIndicator: View {
     
     var body: some View {
         Button { isListPresented = true } label: {
-            HStack(spacing: 6) {
-                style.icons.icon(.warning, size: .xSmall, relativeTo: .bodySMSemibold)
+            // The design's solid action pill: an info glyph, the label, and an arrow for the list it
+            // opens. Filled rather than translucent, so it reads over any picture.
+            HStack(spacing: 8) {
+                style.icons.icon(.info, size: .small, relativeTo: .bodySMSemibold)
                     .accessibilityHidden(true)
                 Text(style.strings.interruptions)
                     .font(style.theme.bodySMSemibold)
                     .lineLimit(1)
+                style.icons.icon(.chevronRight, size: .small, relativeTo: .bodySMSemibold)
+                    .accessibilityHidden(true)
             }
-            .foregroundStyle(style.theme.textPrimary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.black.opacity(0.6), in: Capsule())
+            .foregroundStyle(style.theme.iconOnSolidPrimary)
+            .padding(.leading, 12)
+            .padding(.trailing, 8)
+            .padding(.vertical, 8)
+            .background(style.theme.bgActionPrimaryRest, in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(ElementCallAccessibilityIdentifiers.interruptions)

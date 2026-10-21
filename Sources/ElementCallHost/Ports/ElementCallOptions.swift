@@ -187,7 +187,7 @@ public nonisolated struct ElementCallStrings: Sendable {
                 unavailable: String = "Unavailable",
                 mediaReconnecting: String = "Reconnecting",
                 mediaUndecryptable: String = "Waiting for encryption keys",
-                interruptions: String = "Connection problems",
+                interruptions: String = "Service interruptions",
                 interruptionsResolved: String = "Connection restored",
                 ownServerUnreachable: String = "Your server can\u{2019}t be reached. You can still see and hear everyone.",
                 ownServerLapsed: String = "Your server can\u{2019}t be reached, and the others can no longer see or hear you. Waiting for your server.",

@@ -26,6 +26,7 @@ public nonisolated protocol ElementCallThemeProtocol: Sendable {
     
     // Icons
     @MainActor var iconPrimary: Color { get }
+    @MainActor var iconSecondary: Color { get }
     @MainActor var iconQuaternary: Color { get }
     @MainActor var iconAccentPrimary: Color { get }
     @MainActor var iconCriticalPrimary: Color { get }
@@ -71,6 +72,12 @@ public extension ElementCallThemeProtocol {
     
     @MainActor func raisedHandBorder(in size: CGSize) -> [AnyShapeStyle] {
         ElementCallBorderGradient.raisedHand.layers(in: size)
+    }
+    
+    /// Compound's own, which follows the colour scheme, so a host theme written before this existed
+    /// keeps compiling and draws the name tag's spinner as designed.
+    @MainActor var iconSecondary: Color {
+        CompoundCoreColorTokens.gray900
     }
     
     /// Element Call web's: the dark theme's translucent greys, since the call screen is always dark.
@@ -152,8 +159,11 @@ public nonisolated enum ElementCallIcon: Sendable, CaseIterable {
     case userProfile
     case overflow
     case collapse
-    /// The service interruptions indicator.
-    case warning
+    /// The service interruptions indicator, and the arrow saying it opens something.
+    case info
+    case chevronRight
+    /// A tile whose media is not arriving; turned by the view.
+    case spinner
 }
 
 public nonisolated enum ElementCallIconSize: Sendable {

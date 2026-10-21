@@ -388,13 +388,14 @@ struct ElementCallTileView: View, Equatable {
                 }
                 if !isNameHidden {
                     badge {
+                        // In the microphone's place, as the design draws it: while nothing arrives
+                        // from them, whether they are muted says nothing.
                         if tile.isMediaInterrupted {
                             mediaIndicator
-                        }
-                        // A screen has no microphone of its own, and a mic glyph on both of one
-                        // person's tiles reads as two people. The share glyph says what the tile
-                        // is instead.
-                        if tile.isScreenShare {
+                        } else if tile.isScreenShare {
+                            // A screen has no microphone of its own, and a mic glyph on both of one
+                            // person's tiles reads as two people. The share glyph says what the
+                            // tile is instead.
                             style.icons.icon(.shareScreen, size: .xSmall, relativeTo: .bodySM)
                         } else if isHandInNamePill, let position = tile.handPosition {
                             // The number between the hand and the name, as on Android (009 C9).
@@ -440,9 +441,7 @@ struct ElementCallTileView: View, Equatable {
     
     /// The name tag's loading indicator (034 R23, R29, R33): read when focused, never announced.
     private var mediaIndicator: some View {
-        ProgressView()
-            .controlSize(.mini)
-            .tint(style.theme.textPrimary)
+        ElementCallSpinner()
             .accessibilityLabel(tile.mediaState == .undecryptable ? style.strings.mediaUndecryptable : style.strings.mediaReconnecting)
     }
     
@@ -518,6 +517,21 @@ struct ElementCallTileView: View, Equatable {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(Color.black.opacity(0.5), in: Capsule())
+    }
+}
+
+/// Compound's spinner glyph, turning. Still with reduce motion on, where the glyph alone says it.
+struct ElementCallSpinner: View {
+    @Environment(\.elementCallStyle) private var style
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isTurning = false
+    
+    var body: some View {
+        style.icons.icon(.spinner, size: .xSmall, relativeTo: .bodySM)
+            .foregroundStyle(style.theme.iconSecondary)
+            .rotationEffect(.degrees(isTurning ? 360 : 0))
+            .animation(reduceMotion ? nil : .linear(duration: 1).repeatForever(autoreverses: false), value: isTurning)
+            .onAppear { isTurning = true }
     }
 }
 

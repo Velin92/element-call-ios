@@ -83,7 +83,9 @@ public nonisolated enum ElementCallAccessibilityIdentifiers {
         case .shareScreen: screenShare
         case .collapse: minimize
         case .overflow: more
-        case .warning: interruptions
+        case .info: interruptions
+        case .chevronRight: "\(prefix).chevronRight"
+        case .spinner: "\(prefix).spinner"
         case .switchCamera: "\(prefix).switchCamera"
         case .raisedHand: "\(prefix).raisedHand"
         case .userProfile: "\(prefix).userProfile"

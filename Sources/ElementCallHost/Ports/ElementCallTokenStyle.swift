@@ -58,6 +58,10 @@ public nonisolated struct ElementCallTokenTheme: ElementCallThemeProtocol {
         colors.iconPrimary
     }
     
+    public var iconSecondary: Color {
+        colors.iconSecondary
+    }
+    
     public var iconQuaternary: Color {
         colors.iconQuaternary
     }
@@ -141,7 +145,9 @@ public nonisolated struct ElementCallTokenIcons: ElementCallIconRenderingProtoco
         case .userProfile: icons.userProfileSolid
         case .overflow: icons.overflowHorizontal
         case .collapse: icons.collapse
-        case .warning: icons.warning
+        case .info: icons.infoSolid
+        case .chevronRight: icons.chevronRight
+        case .spinner: icons.spinner
         }
     }
     

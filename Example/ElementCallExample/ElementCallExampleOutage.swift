@@ -124,9 +124,10 @@ struct ElementCallExampleOutage {
         (.seconds(45), .interruptions(.none))
     ])
     
+    /// The core's budget is a minute; the fixture is about the end, not the wait, so it is short.
     static let ownSFUBudget = ElementCallExampleOutage(timeline: [
         (.seconds(5), .interruptions(.init(ownMedia: .reconnecting))),
-        (.seconds(65), .connectionLost(.budget))
+        (.seconds(15), .connectionLost(.budget))
     ])
     
     static let peerSFU1m = ElementCallExampleOutage(timeline: [

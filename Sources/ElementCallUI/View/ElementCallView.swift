@@ -25,7 +25,6 @@ struct ElementCallView: View {
     /// started at zero, the banner's row of tiles began underneath it.
     @State private var topBarHeight: CGFloat = 44
     @State private var bannerHeight: CGFloat = 28
-    @State private var indicatorHeight: CGFloat = 30
     /// Set when a scroll-hide starts counting down to its return; any change cancels the count.
     @State private var scrollIdleToken: Int?
     /// A single tap waiting out ``chromeTapDelay`` before it toggles anything. A second tap within
@@ -308,19 +307,15 @@ struct ElementCallView: View {
     }
     
     /// Room above the stage's content for whatever is drawn over its top. Landscape draws over the
-    /// picture and keeps nothing clear (R4). Portrait keeps the top bar, the banner and the
-    /// interruptions indicator clear, and the top bar never leaves in portrait (R30), so this
-    /// changes only with the other two, neither of which is chrome. Full screen runs under
-    /// everything.
-    static func topClearance(isLandscape: Bool,
-                             isFullscreen: Bool,
-                             topBarHeight: CGFloat,
-                             bannerHeight: CGFloat?,
-                             indicatorHeight: CGFloat? = nil) -> CGFloat {
+    /// picture and keeps nothing clear (R4). Portrait keeps the top bar and the banner clear, and
+    /// the top bar never leaves in portrait (R30), so this changes only with the banner. Full
+    /// screen runs under everything. The interruptions indicator is not here: it floats over the
+    /// stage, as the design draws it, so an outage moves no tile.
+    static func topClearance(isLandscape: Bool, isFullscreen: Bool, topBarHeight: CGFloat, bannerHeight: CGFloat?) -> CGFloat {
         guard !isLandscape, !isFullscreen else { return 0 }
         var clearance = topBarHeight + topChromeSpacing
-        for height in [bannerHeight, indicatorHeight].compactMap(\.self) {
-            clearance += height + topChromeSpacing
+        if let bannerHeight {
+            clearance += bannerHeight + topChromeSpacing
         }
         return clearance
     }
@@ -362,8 +357,7 @@ struct ElementCallView: View {
                     .frame(height: safeArea.top + Self.topClearance(isLandscape: false,
                                                                     isFullscreen: false,
                                                                     topBarHeight: topBarHeight,
-                                                                    bannerHeight: isSharing ? bannerHeight : nil,
-                                                                    indicatorHeight: isInterrupted ? indicatorHeight : nil))
+                                                                    bannerHeight: isSharing ? bannerHeight : nil))
                     .frame(maxHeight: .infinity, alignment: .top)
                     .ignoresSafeArea(edges: .top)
             }
@@ -380,11 +374,11 @@ struct ElementCallView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 // Not chrome either, and for the same reason as the banner it moves up rather than
-                // going: an outage is when a user looks for why the call went quiet (034 R35). No
-                // transition, so it appears at once.
+                // going: an outage is when a user looks for why the call went quiet (034 R35). Over
+                // the stage rather than above it, so it reserves no room and no tile moves when it
+                // comes. No transition, so it appears at once.
                 if isInterrupted {
                     ElementCallInterruptionsIndicator(interruptions: context.viewState.interruptions)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { indicatorHeight = $0 }
                         .offset(y: isVisible ? 0 : -(topBarHeight + Self.topChromeSpacing))
                 }
             }
@@ -579,8 +573,7 @@ struct ElementCallView: View {
                              topClearance: Self.topClearance(isLandscape: isLandscape,
                                                              isFullscreen: fullscreenTile != nil,
                                                              topBarHeight: topBarHeight,
-                                                             bannerHeight: state.isScreenSharing ? bannerHeight : nil,
-                                                             indicatorHeight: state.interruptions.isEmpty ? nil : indicatorHeight),
+                                                             bannerHeight: state.isScreenSharing ? bannerHeight : nil),
                              // Whether the bar is up or not: the grid's end always clears where it
                              // sits, so the bar going changes nothing under it (R31).
                              controlsClearance: Self.controlsClearance,

@@ -20,8 +20,9 @@ struct ElementCallInterruptionsIndicator: View {
     
     var body: some View {
         Button { isListPresented = true } label: {
-            // The design's solid action pill: an info glyph, the label, and an arrow for the list it
-            // opens. Filled rather than translucent, so it reads over any picture.
+            // An info glyph, the label, and an arrow for the list it opens, on liquid glass over the
+            // stage, as the design draws it. Interactive glass, because plain glass over the stage
+            // takes no taps (see AGENTS.md).
             HStack(spacing: 8) {
                 style.icons.icon(.info, size: .small, relativeTo: .bodySMSemibold)
                     .accessibilityHidden(true)
@@ -31,11 +32,12 @@ struct ElementCallInterruptionsIndicator: View {
                 style.icons.icon(.chevronRight, size: .small, relativeTo: .bodySMSemibold)
                     .accessibilityHidden(true)
             }
-            .foregroundStyle(style.theme.iconOnSolidPrimary)
+            .foregroundStyle(style.theme.textPrimary)
             .padding(.leading, 12)
             .padding(.trailing, 8)
             .padding(.vertical, 8)
-            .background(style.theme.bgActionPrimaryRest, in: Capsule())
+            // Tinted dark: clear glass over a bright picture left the label unreadable.
+            .elementCallGlass(in: Capsule(), fallback: style.theme.bgCanvasDefaultLevel.opacity(0.9), tint: .black.opacity(0.4), isInteractive: true)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(ElementCallAccessibilityIdentifiers.interruptions)

@@ -156,7 +156,7 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case .outageHomeserver30s: "From 5 s: the server entry, the hand disabled, everyone still in the call."
         case .outageHomeserverLapse: "From 15 s the others cannot see or hear us; back at 45 s, republished at 48 s."
         case .outageOwnSFURecovers40s: "From 5 s: our tile's spinner and sharing disabled, until 45 s."
-        case .outageOwnSFUBudget: "From 5 s our media reconnects; at 65 s the call fails and says why."
+        case .outageOwnSFUBudget: "From 5 s our media reconnects; at 15 s the call fails and says why."
         case .outagePeerSFU1m: "From 5 s Carol and Bob are avatars with a spinner, until 65 s."
         case .outageKeyUndeliveredThenDelivered: "From 5 s Erin cannot be decrypted, until 15 s."
         }

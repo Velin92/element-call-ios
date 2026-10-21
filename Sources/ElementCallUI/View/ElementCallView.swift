@@ -383,6 +383,9 @@ struct ElementCallView: View {
                 // comes. No transition, so it appears at once.
                 if isInterrupted {
                     ElementCallInterruptionsIndicator(interruptions: context.viewState.interruptions)
+                        // Inside the stage's top edge by what the tile insets its own pills by, so
+                        // it sits level with the spotlight's people count, as the design has it.
+                        .padding(.top, 8)
                         .offset(y: isVisible ? 0 : -(topBarHeight + Self.topChromeSpacing))
                 }
             }

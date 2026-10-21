@@ -47,6 +47,11 @@ struct ElementCallExampleOutage {
             try? await Task.sleep(for: at - elapsed)
             elapsed = at
             guard !Task.isCancelled else { return }
+            // The call's own timers run on the scenario's manual clock, which nothing else moves
+            // here. Left at zero, every member stayed within the key-arrival grace for good and
+            // Erin's late key never showed.
+            playback.player.clock.advance(to: at)
+            await playback.player.settle()
             switch step {
             case .interruptions(let record):
                 playback.player.session.push(interruptions: record)

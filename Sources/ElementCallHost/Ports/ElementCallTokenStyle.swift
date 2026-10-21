@@ -141,6 +141,7 @@ public nonisolated struct ElementCallTokenIcons: ElementCallIconRenderingProtoco
         case .userProfile: icons.userProfileSolid
         case .overflow: icons.overflowHorizontal
         case .collapse: icons.collapse
+        case .warning: icons.warning
         }
     }
     

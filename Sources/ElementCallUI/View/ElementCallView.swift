@@ -25,6 +25,7 @@ struct ElementCallView: View {
     /// started at zero, the banner's row of tiles began underneath it.
     @State private var topBarHeight: CGFloat = 44
     @State private var bannerHeight: CGFloat = 28
+    @State private var indicatorHeight: CGFloat = 30
     /// Set when a scroll-hide starts counting down to its return; any change cancels the count.
     @State private var scrollIdleToken: Int?
     /// A single tap waiting out ``chromeTapDelay`` before it toggles anything. A second tap within
@@ -77,6 +78,14 @@ struct ElementCallView: View {
                             ElementCallFullscreenHandBadge(position: position)
                                 .zIndex(2)
                         }
+                        // Outside the chrome as well, like the hand: the indicator stays while
+                        // the chrome is hidden (034 R35). Level with the exit button.
+                        if !context.viewState.interruptions.isEmpty {
+                            ElementCallInterruptionsIndicator(interruptions: context.viewState.interruptions)
+                                .padding(.top, 7)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                                .zIndex(3)
+                        }
                         if context.isFullscreenChromeVisible {
                             ElementCallFullscreenChrome(tile: fullscreenTile,
                                                         context: context,
@@ -107,6 +116,11 @@ struct ElementCallView: View {
             .statusBarHidden(fullscreenTile != nil ? !context.isFullscreenChromeVisible : isTopBarHideable(isLandscape: isLandscape) && !isStageChromeVisible)
             .onChange(of: isLandscape) { _, isLandscape in
                 applyStageChrome(.rotated(isLandscape: isLandscape))
+            }
+            // Announced as it comes and goes, never per entry, so an outage is one sentence rather
+            // than a burst (034 R40).
+            .onChange(of: context.viewState.interruptions.isEmpty) { _, isEmpty in
+                AccessibilityNotification.Announcement(isEmpty ? style.strings.interruptionsResolved : style.strings.interruptions).post()
             }
             .onChange(of: context.viewState.isRinging, initial: true) { wasRinging, isRinging in
                 if isRinging {
@@ -294,14 +308,19 @@ struct ElementCallView: View {
     }
     
     /// Room above the stage's content for whatever is drawn over its top. Landscape draws over the
-    /// picture and keeps nothing clear (R4). Portrait keeps the top bar and the banner clear, and
-    /// the top bar never leaves in portrait (R30), so this changes only with the banner. Full
-    /// screen runs under everything.
-    static func topClearance(isLandscape: Bool, isFullscreen: Bool, topBarHeight: CGFloat, bannerHeight: CGFloat?) -> CGFloat {
+    /// picture and keeps nothing clear (R4). Portrait keeps the top bar, the banner and the
+    /// interruptions indicator clear, and the top bar never leaves in portrait (R30), so this
+    /// changes only with the other two, neither of which is chrome. Full screen runs under
+    /// everything.
+    static func topClearance(isLandscape: Bool,
+                             isFullscreen: Bool,
+                             topBarHeight: CGFloat,
+                             bannerHeight: CGFloat?,
+                             indicatorHeight: CGFloat? = nil) -> CGFloat {
         guard !isLandscape, !isFullscreen else { return 0 }
         var clearance = topBarHeight + topChromeSpacing
-        if let bannerHeight {
-            clearance += bannerHeight + topChromeSpacing
+        for height in [bannerHeight, indicatorHeight].compactMap(\.self) {
+            clearance += height + topChromeSpacing
         }
         return clearance
     }
@@ -317,6 +336,7 @@ struct ElementCallView: View {
     private func topChrome(isLandscape: Bool, safeArea: EdgeInsets, isOverPicture: Bool) -> some View {
         let isVisible = !isTopBarHideable(isLandscape: isLandscape) || isStageChromeVisible
         let isSharing = context.viewState.isScreenSharing
+        let isInterrupted = !context.viewState.interruptions.isEmpty
         return ZStack(alignment: .top) {
             if isLandscape {
                 LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .top, endPoint: .bottom)
@@ -342,7 +362,8 @@ struct ElementCallView: View {
                     .frame(height: safeArea.top + Self.topClearance(isLandscape: false,
                                                                     isFullscreen: false,
                                                                     topBarHeight: topBarHeight,
-                                                                    bannerHeight: isSharing ? bannerHeight : nil))
+                                                                    bannerHeight: isSharing ? bannerHeight : nil,
+                                                                    indicatorHeight: isInterrupted ? indicatorHeight : nil))
                     .frame(maxHeight: .infinity, alignment: .top)
                     .ignoresSafeArea(edges: .top)
             }
@@ -357,6 +378,14 @@ struct ElementCallView: View {
                         // Up into the top bar's place while it is away.
                         .offset(y: isVisible ? 0 : -(topBarHeight + Self.topChromeSpacing))
                         .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                // Not chrome either, and for the same reason as the banner it moves up rather than
+                // going: an outage is when a user looks for why the call went quiet (034 R35). No
+                // transition, so it appears at once.
+                if isInterrupted {
+                    ElementCallInterruptionsIndicator(interruptions: context.viewState.interruptions)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { indicatorHeight = $0 }
+                        .offset(y: isVisible ? 0 : -(topBarHeight + Self.topChromeSpacing))
                 }
             }
         }
@@ -550,7 +579,8 @@ struct ElementCallView: View {
                              topClearance: Self.topClearance(isLandscape: isLandscape,
                                                              isFullscreen: fullscreenTile != nil,
                                                              topBarHeight: topBarHeight,
-                                                             bannerHeight: state.isScreenSharing ? bannerHeight : nil),
+                                                             bannerHeight: state.isScreenSharing ? bannerHeight : nil,
+                                                             indicatorHeight: state.interruptions.isEmpty ? nil : indicatorHeight),
                              // Whether the bar is up or not: the grid's end always clears where it
                              // sits, so the bar going changes nothing under it (R31).
                              controlsClearance: Self.controlsClearance,
@@ -612,6 +642,22 @@ struct ElementCallView_Previews: PreviewProvider, TestablePreview {
                                callProvider: ElementCallPreviewFixtures.noCall)
     }
     
+    /// Our server away and Dan's media server too: the indicator over the stage, which stays when
+    /// the chrome goes (034 R35), and Dan drawn as his avatar with the name tag's spinner.
+    static func interrupted(isChromeVisible: Bool) -> some View {
+        let tiles = ElementCallPreviewFixtures.group.map { tile in
+            tile.displayName == "Dan" ? ElementCallPreviewFixtures.tile("Dan", hasVideo: true, mediaState: .reconnecting) : tile
+        }
+        var state = ElementCallPreviewFixtures.connected(tiles: tiles)
+        state.interruptions = [.ownServer(isMembershipLapsed: false, hasUnverifiedParticipant: false), .othersMedia]
+        state.isSignallingReachable = false
+        let context = ElementCallScreenContext.preview(state: state)
+        context.stageChrome = .pinned(isVisible: isChromeVisible)
+        return ElementCallView(context: context,
+                               pictureInPictureSourceView: UIView(),
+                               callProvider: ElementCallPreviewFixtures.noCall)
+    }
+    
     static var previews: some View {
         ElementCallView(context: joiningViewModel.context, pictureInPictureSourceView: UIView()) { nil }
             .previewDisplayName("Joining")
@@ -664,6 +710,10 @@ struct ElementCallView_Previews: PreviewProvider, TestablePreview {
             .previewDisplayName("Four people, chrome shown")
         chrome(isVisible: false, tiles: Array(ElementCallPreviewFixtures.group.prefix(4)))
             .previewDisplayName("Four people, chrome hidden")
+        interrupted(isChromeVisible: true)
+            .previewDisplayName("Interrupted")
+        interrupted(isChromeVisible: false)
+            .previewDisplayName("Interrupted, chrome hidden")
     }
 }
 

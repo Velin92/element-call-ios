@@ -152,6 +152,8 @@ public nonisolated enum ElementCallIcon: Sendable, CaseIterable {
     case userProfile
     case overflow
     case collapse
+    /// The service interruptions indicator.
+    case warning
 }
 
 public nonisolated enum ElementCallIconSize: Sendable {

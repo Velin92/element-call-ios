@@ -148,6 +148,18 @@ public nonisolated struct ElementCallStrings: Sendable {
     /// member's media is being re-established, or their media cannot be decrypted (034 R40).
     public var mediaReconnecting: String
     public var mediaUndecryptable: String
+    /// The service interruptions indicator, and what a screen reader says when it goes (034 R35,
+    /// R40). Short: it sits over the stage.
+    public var interruptions: String
+    public var interruptionsResolved: String
+    /// The list's entries (034 R13, R16, R17, R23, R29). The server entry reads `ownServerLapsed`
+    /// once the others have dropped us, with `unverifiedParticipant` after it while someone is on
+    /// the call who cannot be checked yet.
+    public var ownServerUnreachable: String
+    public var ownServerLapsed: String
+    public var unverifiedParticipant: String
+    public var ownMediaReconnecting: String
+    public var othersMediaInterrupted: String
     
     public init(you: String = "You",
                 error: String = "Error",
@@ -165,7 +177,14 @@ public nonisolated struct ElementCallStrings: Sendable {
                 joinRefused: String = "Your server refused to let you join",
                 unavailable: String = "Unavailable",
                 mediaReconnecting: String = "Reconnecting",
-                mediaUndecryptable: String = "Waiting for encryption keys") {
+                mediaUndecryptable: String = "Waiting for encryption keys",
+                interruptions: String = "Connection problems",
+                interruptionsResolved: String = "Connection restored",
+                ownServerUnreachable: String = "Your server can\u{2019}t be reached. You can still see and hear everyone.",
+                ownServerLapsed: String = "Your server can\u{2019}t be reached, and the others can no longer see or hear you. Waiting for your server.",
+                unverifiedParticipant: String = "Someone has joined whose identity can\u{2019}t be checked until it\u{2019}s back.",
+                ownMediaReconnecting: String = "Reconnecting your audio and video\u{2026}",
+                othersMediaInterrupted: String = "Some people\u{2019}s audio or video isn\u{2019}t reaching you.") {
         self.you = you
         self.error = error
         self.stop = stop
@@ -183,6 +202,13 @@ public nonisolated struct ElementCallStrings: Sendable {
         self.unavailable = unavailable
         self.mediaReconnecting = mediaReconnecting
         self.mediaUndecryptable = mediaUndecryptable
+        self.interruptions = interruptions
+        self.interruptionsResolved = interruptionsResolved
+        self.ownServerUnreachable = ownServerUnreachable
+        self.ownServerLapsed = ownServerLapsed
+        self.unverifiedParticipant = unverifiedParticipant
+        self.ownMediaReconnecting = ownMediaReconnecting
+        self.othersMediaInterrupted = othersMediaInterrupted
     }
     
     /// The text for a failure.

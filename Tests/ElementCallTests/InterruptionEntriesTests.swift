@@ -5,6 +5,7 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+import ElementCallHost
 import ElementCallKit
 @testable import ElementCallUI
 import Foundation
@@ -153,5 +154,24 @@ struct InterruptedTileTests {
         let arrivals = ["early": start, "late": start + .seconds(4)]
         let now = start + ElementCallScreenViewModel.keyArrivalGrace + .milliseconds(1)
         #expect(ElementCallScreenViewModel.membersWithinKeyGrace(arrivals: arrivals, now: now) == ["late"])
+    }
+}
+
+/// What the list says (034 R13, R16, R17).
+@Suite("Interruption text")
+struct InterruptionTextTests {
+    private let strings = ElementCallStrings()
+    
+    @Test
+    func theLapseChangesTheServerEntryRatherThanAddingOne() {
+        #expect(strings.text(for: .ownServer(isMembershipLapsed: false, hasUnverifiedParticipant: false)) == strings.ownServerUnreachable)
+        #expect(strings.text(for: .ownServer(isMembershipLapsed: true, hasUnverifiedParticipant: false)) == strings.ownServerLapsed)
+    }
+    
+    @Test
+    func anUnverifiedParticipantIsNamedInTheServerEntry() {
+        let text = strings.text(for: .ownServer(isMembershipLapsed: false, hasUnverifiedParticipant: true))
+        #expect(text.hasPrefix(strings.ownServerUnreachable))
+        #expect(text.hasSuffix(strings.unverifiedParticipant))
     }
 }

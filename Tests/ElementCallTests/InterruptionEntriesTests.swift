@@ -66,12 +66,13 @@ struct InterruptionEntriesTests {
         }
     }
     
-    /// A newcomer nobody decrypts yet is the key rotation every join makes, not an interruption.
+    /// A member undecryptable for a moment is the key rotation every join and leave makes, not an
+    /// interruption.
     @Test
-    func anArrivingMemberIsNotYetUndecryptable() {
-        let record = MatrixRTCInterruptions(undecryptable: ["new", "old"])
-        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record, arriving: ["new"]) == [.othersMedia])
-        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record, arriving: ["new", "old"]).isEmpty)
+    func aMemberWithinTheKeyGraceIsNotYetUndecryptable() {
+        let record = MatrixRTCInterruptions(undecryptable: ["brief", "long"])
+        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record, withinKeyGrace: ["brief"]) == [.othersMedia])
+        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record, withinKeyGrace: ["brief", "long"]).isEmpty)
     }
     
     @Test
@@ -146,9 +147,9 @@ struct InterruptedTileTests {
         #expect(tiles(bob(connection: .reconnecting, isDecryptable: false)).first?.mediaState == .reconnecting)
     }
     
-    /// Every join rotates the keys, and for up to `delayBeforeUse` nobody decrypts the newcomer.
+    /// Every join and leave rotates the keys, and for a moment frames come under a key we lack.
     @Test
-    func aNewcomerIsNotUndecryptableYet() {
+    func aMemberWithinTheKeyGraceIsNotUndecryptableYet() {
         #expect(tiles(bob(isDecryptable: false), withinKeyGrace: ["@bob:x:B"]).first?.mediaState == .live)
         #expect(tiles(bob(connection: .reconnecting), withinKeyGrace: ["@bob:x:B"]).first?.mediaState == .reconnecting)
     }

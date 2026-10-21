@@ -33,18 +33,22 @@ public final class MatrixRTCMediaSession {
     /// What is interrupting the call, cause by cause. Published after the roster and local state of
     /// the same change, so tiles read when this moves already agree with it (034 C5).
     public private(set) var interruptions: MatrixRTCInterruptions = .none
-    /// Remote members on the roster for less than ``keyArrivalGrace``.
-    public private(set) var membersWithinKeyArrivalGrace: Set<String> = []
-    @ObservationIgnored private var knownMembers: Set<String> = []
-    @ObservationIgnored private var keyArrivalExpiries: [String: Task<Void, Never>] = [:]
+    /// Members undecryptable for less than ``keyGrace`` without a break.
+    public private(set) var membersWithinKeyGrace: Set<String> = []
+    @ObservationIgnored private var keyGraceExpiries: [String: Task<Void, Never>] = [:]
     
-    /// How long a member may be undecryptable after reaching the roster before a UI treats it as
-    /// an interruption. Every join rotates the keys, and until the new key comes into use, up to
-    /// `delayBeforeUse` later (5 s by default), the newcomer and the others cannot decrypt each
-    /// other (034 C6). That happens on every join and is not a fault; past this, it is one. Here
-    /// rather than in a view so the stage and the minimized bar agree, and on the call's clock so
-    /// a scenario can step past it.
-    public static let keyArrivalGrace: Duration = .seconds(5)
+    /// How long a member may be undecryptable before a UI treats it as an interruption. Every join
+    /// and every leave rotates the keys, and for a moment around each rotation frames arrive under
+    /// a key we do not hold yet: a newcomer's until theirs reaches us, and everyone's when they move
+    /// to a new one before it does (034 C6). That happens on every change of the roster and is not
+    /// a fault; past this, it is one.
+    ///
+    /// Counted from the start of each spell rather than from a member's arrival, which is what it
+    /// was first: on a real call the blips came from members already present, at every join and
+    /// leave, and a newcomer's media can come seconds after their membership. Here rather than in a
+    /// view so the stage and the minimized bar agree, and on the call's clock so a scenario can step
+    /// past it.
+    public static let keyGrace: Duration = .seconds(5)
     
     /// Our own tile — and the reason this is not simply `localState?.tile`.
     ///
@@ -785,7 +789,7 @@ public final class MatrixRTCMediaSession {
         pendingReleases.values.forEach { $0.cancel() }
         pendingReleases.removeAll()
         tasks.forEach { $0.cancel() }
-        keyArrivalExpiries.values.forEach { $0.cancel() }
+        keyGraceExpiries.values.forEach { $0.cancel() }
         tasks.removeAll()
         audioLevelFlush?.cancel()
         audioLevelFlush = nil
@@ -852,23 +856,25 @@ public final class MatrixRTCMediaSession {
         }
         tiles = mapped
         reconcilePlayback()
-        reconcileArrivals()
+        reconcileKeyGrace()
     }
     
-    private func reconcileArrivals() {
-        let present = Set(tiles.order.map(\.id.memberID))
-        for memberID in knownMembers.subtracting(present) {
-            keyArrivalExpiries.removeValue(forKey: memberID)?.cancel()
-            membersWithinKeyArrivalGrace.remove(memberID)
+    /// From both the tiles and the record: a change reaches the tiles first (C5), and a spell has to
+    /// have begun by then or the tile draws its spinner for the moment in between.
+    private func reconcileKeyGrace() {
+        let undecryptable = Set(interruptions.undecryptable)
+            .union(tiles.detail.values.filter { !$0.isDecryptable }.map(\.memberID))
+        for memberID in Set(keyGraceExpiries.keys).subtracting(undecryptable) {
+            keyGraceExpiries.removeValue(forKey: memberID)?.cancel()
+            membersWithinKeyGrace.remove(memberID)
         }
-        for memberID in present.subtracting(knownMembers) {
-            membersWithinKeyArrivalGrace.insert(memberID)
-            keyArrivalExpiries[memberID] = clock.schedule(after: Self.keyArrivalGrace) { [weak self] in
-                self?.membersWithinKeyArrivalGrace.remove(memberID)
-                self?.keyArrivalExpiries[memberID] = nil
+        for memberID in undecryptable where keyGraceExpiries[memberID] == nil {
+            membersWithinKeyGrace.insert(memberID)
+            // Kept once it fires, so a spell that outlasts the grace is not granted a second one.
+            keyGraceExpiries[memberID] = clock.schedule(after: Self.keyGrace) { [weak self] in
+                self?.membersWithinKeyGrace.remove(memberID)
             }
         }
-        knownMembers = present
     }
     
     private func apply(_ state: FfiLocalState?) {
@@ -885,6 +891,7 @@ public final class MatrixRTCMediaSession {
         guard mapped != interruptions else { return }
         MatrixRTCLog.info("Interruptions: \(mapped)")
         interruptions = mapped
+        reconcileKeyGrace()
     }
     
     private func pumpEvents() async {

@@ -86,20 +86,28 @@ struct ScriptedSessionTests {
         await player.call.disconnect()
     }
     
-    /// Every join rotates the keys, so a newcomer is held as arriving for the grace and then not,
-    /// on the call's own clock (034 C6).
+    /// Each spell of undecryptability is held for the grace and then not, on the call's own clock,
+    /// and the next spell gets a grace of its own (034 C6).
     @Test
-    func aNewcomerIsArrivingForTheGraceOnly() async throws {
-        let player = try MatrixRTCScenarioPlayer(scenario: MatrixRTCScenario.parse("0s B\n3s B C\n6s B C", name: "t"))
+    func anUndecryptableSpellIsWithinTheKeyGraceForTheGraceOnly() async throws {
+        let player = try MatrixRTCScenarioPlayer(scenario: MatrixRTCScenario.parse("0s B C", name: "t"))
         await player.start()
+        _ = await player.step()
+        #expect(player.call.membersWithinKeyGrace.isEmpty)
+        let bob = a("B").memberID
         
-        _ = await player.step()
-        #expect(player.call.membersWithinKeyArrivalGrace == [a("B").memberID])
-        _ = await player.step()
-        #expect(player.call.membersWithinKeyArrivalGrace == [a("B").memberID, a("C").memberID])
-        _ = await player.step()
+        player.session.push(interruptions: MatrixRTCInterruptions(undecryptable: [bob]))
+        try await waitFor { player.call.interruptions.undecryptable == [bob] }
+        #expect(player.call.membersWithinKeyGrace == [bob])
+        player.clock.advance(by: MatrixRTCMediaSession.keyGrace)
         await player.settle()
-        #expect(player.call.membersWithinKeyArrivalGrace == [a("C").memberID])
+        #expect(player.call.membersWithinKeyGrace.isEmpty)
+        
+        player.session.push(interruptions: .none)
+        try await waitFor { player.call.interruptions.undecryptable.isEmpty }
+        player.session.push(interruptions: MatrixRTCInterruptions(undecryptable: [bob]))
+        try await waitFor { player.call.interruptions.undecryptable == [bob] }
+        #expect(player.call.membersWithinKeyGrace == [bob])
         await player.call.disconnect()
     }
     

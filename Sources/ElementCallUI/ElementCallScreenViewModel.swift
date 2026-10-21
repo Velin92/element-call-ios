@@ -349,7 +349,7 @@ public final class ElementCallScreenViewModel {
                                  youLabel: context.style.strings.you,
                                  isLocalMicrophoneMuted: call.isMicrophoneMuted,
                                  localHasVideo: call.isCameraEnabled,
-                                 withinKeyGrace: call.membersWithinKeyArrivalGrace,
+                                 withinKeyGrace: call.membersWithinKeyGrace,
                                  // The flag is read before any stats, so that with the overlay down
                                  // none of them enters this method's observation access list.
                                  // `receiveStats` is rewritten every second whether anyone is looking

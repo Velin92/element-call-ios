@@ -53,14 +53,18 @@ struct ElementCallExampleOutage {
         var last: String?
         for (index, (at, step)) in timeline.enumerated() {
             playback.timeline = (index, timeline.count, [last, "next at \(at.seconds) s"].compactMap(\.self).joined(separator: " · "))
-            try? await Task.sleep(for: at - elapsed)
-            elapsed = at
-            guard !Task.isCancelled else { return }
             // The call's own timers run on the scenario's manual clock, which nothing else moves
-            // here. Left at zero, every member stayed within the key-arrival grace for good and
-            // Erin's late key never showed.
-            playback.player.clock.advance(to: at)
-            await playback.player.settle()
+            // here, so it is moved with the wall clock. Left at zero, Erin stayed within the key
+            // grace for good and her late key never showed; moved only at each step, the grace
+            // that ends between two steps ended at the second.
+            while elapsed < at {
+                let tick = min(at - elapsed, .milliseconds(250))
+                try? await Task.sleep(for: tick)
+                guard !Task.isCancelled else { return }
+                elapsed += tick
+                playback.player.clock.advance(to: elapsed)
+                await playback.player.settle()
+            }
             switch step {
             case .interruptions(let record):
                 playback.player.session.push(interruptions: record)

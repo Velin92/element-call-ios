@@ -237,7 +237,7 @@ suite fails on identical bytes until the runner has recorded them once. `git dif
 after that recording run tells the two apart: empty means provenance, anything else is a finding.
 
 The call's timers — the share intent timeout, the release linger, the audio level flush, the stats
-poll, the key-arrival grace, and the video source's idle linger in `VideoFrameSlot.swift` — all
+poll, the key grace, and the video source's idle linger in `VideoFrameSlot.swift` — all
 sleep on the injected clock. A new `Task.sleep` in the Kit is a timer the scenarios cannot step past.
 
 #### Running it by hand, and watching a move frame by frame

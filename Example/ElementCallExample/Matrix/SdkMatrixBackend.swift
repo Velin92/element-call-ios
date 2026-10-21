@@ -17,7 +17,10 @@ import MatrixRustSDK
 /// One per Matrix session, alive between calls. The core calls it from its own threads, and the SDK
 /// calls the listeners below from its own; the core's sinks only post to a channel, so events are
 /// delivered straight from the SDK's callbacks, with nothing buffered in between.
-final class SdkMatrixBackend: MatrixBackend {
+///
+/// Every type in these files is marked `nonisolated` although this target does not need it: a host
+/// whose default isolation is the main actor, as Element X's is, must be able to copy them unchanged.
+final nonisolated class SdkMatrixBackend: MatrixBackend {
     static let redactionEventType = "m.room.redaction"
     
     private let client: Client
@@ -204,7 +207,7 @@ final class SdkMatrixBackend: MatrixBackend {
 }
 
 /// Cancels every listener and task of one subscription. Idempotent, as the core requires.
-private final class SdkSubscription: BackendSubscription {
+private final nonisolated class SdkSubscription: BackendSubscription {
     private let handles: [TaskHandle]
     private let tasks: [Task<Void, Never>]
     

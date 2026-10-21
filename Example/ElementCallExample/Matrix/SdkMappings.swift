@@ -11,7 +11,7 @@ import MatrixRustSDK
 
 /// What ``SdkMatrixBackend`` turns SDK values into, kept apart from the listeners so every mapping can
 /// be tested without a client.
-enum SdkMappings {
+nonisolated enum SdkMappings {
     // MARK: Events
     
     /// Under the subscribed type rather than the event's own: the SDK hands it back as ruma's enum,
@@ -167,7 +167,7 @@ enum SdkMappings {
 }
 
 /// The live sticky events, by key, in the order they arrived.
-struct SdkStickyEventSet {
+nonisolated struct SdkStickyEventSet {
     private var keys = [StickyKey]()
     private var events = [StickyKey: FfiEventIn]()
     

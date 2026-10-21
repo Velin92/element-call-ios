@@ -41,6 +41,8 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
         var hasUnreadLocalState = false
         var pendingLocalState: CheckedContinuation<FfiLocalState?, Never>?
         var pendingEvent: CheckedContinuation<FfiCallEvent?, Never>?
+        var interruptions = MatrixRTCInterruptions.none.ffi
+        var hasUnreadInterruptions = false
         var pendingInterruptions: CheckedContinuation<FfiInterruptions?, Never>?
         var hasEnded = false
         /// Tiles the next rosters carry detail for; nil for everything.
@@ -112,6 +114,21 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
             return state.publishLocalState(memberID: localMemberID)
         }
         pending?.resume(returning: state.withLock { $0.localState })
+    }
+    
+    /// The next interruptions record the call sees: an outage, as the core would report it.
+    public func push(interruptions: MatrixRTCInterruptions) {
+        let record = interruptions.ffi
+        let pending = state.withLock { state -> CheckedContinuation<FfiInterruptions?, Never>? in
+            state.interruptions = record
+            guard let pending = state.pendingInterruptions else {
+                state.hasUnreadInterruptions = true
+                return nil
+            }
+            state.pendingInterruptions = nil
+            return pending
+        }
+        pending?.resume(returning: record)
     }
     
     /// Narrows what the next rosters carry detail for. Nil widens back to everything.
@@ -193,18 +210,21 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
         }
     }
     
-    /// Nothing is ever interrupted: the record only ever ends.
     public func nextInterruptions() async -> FfiInterruptions? {
         await withCheckedContinuation { continuation in
-            let ended = state.withLock { state -> Bool in
+            let ready = state.withLock { state -> FfiInterruptions?? in
+                if state.hasUnreadInterruptions {
+                    state.hasUnreadInterruptions = false
+                    return .some(state.interruptions)
+                }
                 if state.hasEnded {
-                    return true
+                    return .some(nil)
                 }
                 state.pendingInterruptions = continuation
-                return false
+                return nil
             }
-            if ended {
-                continuation.resume(returning: nil)
+            if let ready {
+                continuation.resume(returning: ready)
             }
         }
     }
@@ -214,7 +234,7 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
     }
     
     public func interruptions() -> FfiInterruptions {
-        Self.uninterrupted
+        state.withLock { $0.interruptions }
     }
     
     public func localState() -> FfiLocalState? {
@@ -292,14 +312,6 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
     }
     
     // MARK: - Tokens to the bindings' records
-    
-    private static let uninterrupted = FfiInterruptions(signalling: .reachable,
-                                                        ownMembershipLapsed: false,
-                                                        ownMedia: .connected,
-                                                        membersReconnecting: [],
-                                                        membersUnreachable: [],
-                                                        undecryptable: [],
-                                                        unmappable: [])
     
     private static func reference(_ token: MatrixRTCScenario.Token) -> FfiTileRef {
         FfiTileRef(id: FfiTileId(memberId: token.memberID, kind: token.kind.ffi), userId: token.userID, hero: token.isHero)

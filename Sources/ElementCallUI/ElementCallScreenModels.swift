@@ -99,6 +99,9 @@ public nonisolated struct ElementCallScreenViewState: Equatable, Sendable {
     public var isHandRaised = false
     /// Joined: there is a membership to put a hand on.
     public var isHandRaiseAvailable = false
+    /// What the service interruptions list shows, at most one entry per kind; empty when nothing is
+    /// interrupted, which is when the indicator goes (034 R35).
+    public var interruptions: [ElementCallInterruption] = []
     
     public var isRinging: Bool {
         if case .calling = connection {

@@ -126,6 +126,35 @@ nonisolated extension MatrixRTCSignallingHealth {
         case .unreachable(let sinceMs): self = .unreachable(since: Date(milliseconds: sinceMs))
         }
     }
+    
+    var ffi: FfiSignallingHealth {
+        switch self {
+        case .reachable: .reachable
+        case .unreachable(let since): .unreachable(sinceMs: UInt64(max(0, since.timeIntervalSince1970 * 1000)))
+        }
+    }
+}
+
+nonisolated extension MatrixRTCInterruptions {
+    init(_ record: FfiInterruptions) {
+        self.init(signalling: .init(record.signalling),
+                  isOwnMembershipLapsed: record.ownMembershipLapsed,
+                  ownMedia: .init(record.ownMedia),
+                  membersReconnecting: record.membersReconnecting,
+                  membersUnreachable: record.membersUnreachable,
+                  undecryptable: record.undecryptable,
+                  unmappable: record.unmappable)
+    }
+    
+    var ffi: FfiInterruptions {
+        FfiInterruptions(signalling: signalling.ffi,
+                         ownMembershipLapsed: isOwnMembershipLapsed,
+                         ownMedia: ownMedia.ffi,
+                         membersReconnecting: membersReconnecting,
+                         membersUnreachable: membersUnreachable,
+                         undecryptable: undecryptable,
+                         unmappable: unmappable)
+    }
 }
 
 nonisolated extension MatrixRTCConnectionState {
@@ -292,7 +321,9 @@ nonisolated extension MatrixRTCCallEvent {
         case .reaction(let memberId, let emoji, let name, _):
             self = .reaction(memberID: memberId, emoji: emoji, name: name)
         case .unknownParticipant(let identity):
-            // The transport knows an identity the membership projection doesn't (yet).
+            // The transport knows an identity the membership projection doesn't (yet). What the UI
+            // shows for it comes from the interruptions record, which lists it for as long as it
+            // stays unmapped; this one-shot is diagnostics.
             MatrixRTCLog.debug("Unknown participant on the transport: \(identity)")
             return nil
         }

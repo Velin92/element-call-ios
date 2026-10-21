@@ -44,6 +44,23 @@ struct ScriptedSessionTests {
         await player.call.disconnect()
     }
     
+    /// The record a host's indicator draws from, pushed as the core would push an outage, and
+    /// starting empty (034 C5).
+    @Test
+    func anInterruptionsRecordReachesTheCall() async throws {
+        let player = try MatrixRTCScenarioPlayer(scenario: MatrixRTCScenario.parse("0s B", name: "t"))
+        await player.start()
+        #expect(player.call.interruptions == .none)
+        
+        let outage = MatrixRTCInterruptions(signalling: .unreachable(since: Date(timeIntervalSince1970: 1)), membersReconnecting: [a("B").memberID])
+        player.session.push(interruptions: outage)
+        for _ in 0..<1000 where player.call.interruptions != outage {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(player.call.interruptions == outage)
+        await player.call.disconnect()
+    }
+    
     @Test
     func ourOwnTileFollowsTheMeFrame() async throws {
         let scenario = try MatrixRTCScenario.parse("0s B\n1s me vm", name: "t")

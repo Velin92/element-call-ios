@@ -394,6 +394,44 @@ public nonisolated enum MatrixRTCSignallingHealth: Sendable, Hashable {
     }
 }
 
+/// Everything interrupting the call, each cause in its own field, so clearing one never clears
+/// another (034 C5, R38). The core names causes, never what to show for them: grouping them into
+/// what the user is told is the UI's.
+///
+/// The lists hold member IDs, except ``unmappable``, which holds identities the media transport
+/// knows and the membership does not, so there is no member to name.
+public nonisolated struct MatrixRTCInterruptions: Sendable, Hashable {
+    /// A copy of the client's signalling health; read that before media exists.
+    public var signalling: MatrixRTCSignallingHealth
+    /// The others have dropped our membership while our sends fail. Our media is paused at the
+    /// transport meanwhile, and nothing on our own tile moves.
+    public var isOwnMembershipLapsed: Bool
+    /// Our own SFU; authoritative from the first value, before our own tile exists.
+    public var ownMedia: MatrixRTCConnectionState
+    public var membersReconnecting: [String]
+    public var membersUnreachable: [String]
+    public var undecryptable: [String]
+    public var unmappable: [String]
+    
+    public init(signalling: MatrixRTCSignallingHealth = .reachable,
+                isOwnMembershipLapsed: Bool = false,
+                ownMedia: MatrixRTCConnectionState = .connected,
+                membersReconnecting: [String] = [],
+                membersUnreachable: [String] = [],
+                undecryptable: [String] = [],
+                unmappable: [String] = []) {
+        self.signalling = signalling
+        self.isOwnMembershipLapsed = isOwnMembershipLapsed
+        self.ownMedia = ownMedia
+        self.membersReconnecting = membersReconnecting
+        self.membersUnreachable = membersUnreachable
+        self.undecryptable = undecryptable
+        self.unmappable = unmappable
+    }
+    
+    public static let none = MatrixRTCInterruptions()
+}
+
 /// Where a joined call is, from the core: it combines our media with whether anybody is there to
 /// talk to, which neither side knows alone. Our media is up seconds before a DM's callee answers.
 public nonisolated enum MatrixRTCCallStatus: Sendable, Hashable {

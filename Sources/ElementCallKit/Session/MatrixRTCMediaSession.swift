@@ -30,6 +30,9 @@ public final class MatrixRTCMediaSession {
     /// Our own tile and whether we are sharing our screen; nil until our membership reaches the
     /// roster. Prefer ``ownTile``, which covers that gap.
     public private(set) var localState: MatrixRTCLocalState?
+    /// What is interrupting the call, cause by cause. Published after the roster and local state of
+    /// the same change, so tiles read when this moves already agree with it (034 C5).
+    public private(set) var interruptions: MatrixRTCInterruptions = .none
     
     /// Our own tile — and the reason this is not simply `localState?.tile`.
     ///
@@ -227,10 +230,12 @@ public final class MatrixRTCMediaSession {
         tasks.append(Task { [weak self] in await self?.pumpEvents() })
         tasks.append(Task { [weak self] in await self?.pumpTileRoster() })
         tasks.append(Task { [weak self] in await self?.pumpLocalState() })
+        tasks.append(Task { [weak self] in await self?.pumpInterruptions() })
         tasks.append(Task { [weak self] in await self?.pollReceiveStats() })
         seedParticipants()
         apply(mediaSession.roster())
         apply(mediaSession.localState())
+        apply(mediaSession.interruptions())
     }
     
     /// The transport's roster, read once: it is the whole call every time, which is the cost the tile
@@ -816,6 +821,13 @@ public final class MatrixRTCMediaSession {
         MatrixRTCLog.debug("Local state pump stopped")
     }
     
+    private func pumpInterruptions() async {
+        while !Task.isCancelled, let record = await mediaSession.nextInterruptions() {
+            apply(record)
+        }
+        MatrixRTCLog.debug("Interruptions pump stopped")
+    }
+    
     private func apply(_ roster: FfiTileRoster) {
         let mapped = MatrixRTCTileRoster(roster, localMemberID: localMemberID)
         // Bail before assigning, for the reason `refreshParticipants` gives: every tile view reads
@@ -834,6 +846,15 @@ public final class MatrixRTCMediaSession {
         guard mapped != localState else { return }
         localState = mapped
         reconcileScreenShare()
+    }
+    
+    /// Logged whole on every change: it is a handful of short lists, and a rageshake of a call that
+    /// went wrong is read for exactly when each cause came and went.
+    private func apply(_ record: FfiInterruptions) {
+        let mapped = MatrixRTCInterruptions(record)
+        guard mapped != interruptions else { return }
+        MatrixRTCLog.info("Interruptions: \(mapped)")
+        interruptions = mapped
     }
     
     private func pumpEvents() async {

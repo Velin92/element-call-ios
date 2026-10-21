@@ -307,6 +307,9 @@ public final class ElementCallScreenViewModel {
         // The membership comes before media, so the hand is offered from the join on.
         state.isHandRaiseAvailable = controller.rtcCall != nil
         state.isHandRaised = controller.isHandRaised
+        // Above the guard as well: the server entry is the one that exists before media does.
+        state.interruptions = controller.isInCall ? ElementCallInterruption.entries(signalling: controller.signalling,
+                                                                                    record: controller.call?.interruptions) : []
         
         if let message = controller.errorMessage {
             context.alertInfo = ElementCallAlert(title: context.style.strings.error, message: message)

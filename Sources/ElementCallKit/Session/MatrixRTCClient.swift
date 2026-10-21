@@ -106,6 +106,12 @@ public final class MatrixRTCRoom {
         } catch MatrixRtcFfiError.SlotClosed(let message) {
             MatrixRTCLog.error("Join refused in \(roomID), the slot is closed: \(message)")
             throw MatrixRTCError.slotClosed(message)
+        } catch MatrixRtcFfiError.JoinTimedOut {
+            MatrixRTCLog.error("Join timed out in \(roomID)")
+            throw MatrixRTCError.joinTimedOut
+        } catch MatrixRtcFfiError.JoinRefused(let errcode, let reason) {
+            MatrixRTCLog.error("Join refused in \(roomID): \(errcode ?? "no code") \(reason)")
+            throw MatrixRTCError.joinRefused(errcode: errcode, reason: reason)
         } catch {
             MatrixRTCLog.error("Join failed in \(roomID): \(error)")
             throw MatrixRTCError.ffi("\(error)")

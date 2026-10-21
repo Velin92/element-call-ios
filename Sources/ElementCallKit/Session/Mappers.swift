@@ -96,7 +96,43 @@ nonisolated extension MatrixRTCEndReason {
         case .othersLeft: self = .othersLeft
         case .empty: self = .empty
         case .slotClosed: self = .slotClosed
-        case .connectionClosed(let message): self = .connectionClosed(message: message)
+        case .connectionClosed(let reason, let message): self = .connectionClosed(reason: .init(reason), message: message)
+        }
+    }
+}
+
+nonisolated extension MatrixRTCConnectionLossReason {
+    init(_ reason: FfiConnectionLossReason) {
+        switch reason {
+        case .budget: self = .budget
+        case .refused: self = .refused
+        case .neverConnected: self = .neverConnected
+        }
+    }
+    
+    var ffi: FfiConnectionLossReason {
+        switch self {
+        case .budget: .budget
+        case .refused: .refused
+        case .neverConnected: .neverConnected
+        }
+    }
+}
+
+nonisolated extension MatrixRTCConnectionState {
+    init(_ state: FfiConnectionState) {
+        switch state {
+        case .connected: self = .connected
+        case .reconnecting: self = .reconnecting
+        case .unreachable: self = .unreachable
+        }
+    }
+    
+    var ffi: FfiConnectionState {
+        switch self {
+        case .connected: .connected
+        case .reconnecting: .reconnecting
+        case .unreachable: .unreachable
         }
     }
 }
@@ -122,7 +158,8 @@ nonisolated extension MatrixRTCParticipant {
                   userID: participant.userId,
                   deviceID: participant.deviceId,
                   isLocal: participant.isLocal,
-                  isReachable: participant.reachable,
+                  connection: .init(participant.connection),
+                  isDecryptable: participant.decryptable,
                   streams: participant.streams.map { .init(kind: .init($0.kind), isMuted: $0.muted) },
                   handRaisedAt: participant.handRaisedAtMs.map(Date.init(milliseconds:)))
     }
@@ -165,7 +202,8 @@ nonisolated extension MatrixRTCTile {
                   isSpeaking: tile.speaking,
                   handRaisedAt: tile.handRaisedAtMs.map(Date.init(milliseconds:)),
                   handRaisedPosition: tile.handRaisedPosition.map(Int.init),
-                  isReachable: tile.reachable)
+                  connection: .init(tile.connection),
+                  isDecryptable: tile.decryptable)
     }
 }
 

@@ -148,9 +148,10 @@ final class SdkMatrixBackend: MatrixBackend {
     }
     
     /// The SDK's relations come back as typed content, with neither raw JSON nor encryption info, so
-    /// a hand raised before we joined shows only once it changes.
+    /// a hand raised before we joined shows only once it changes. None rather than a failure, which
+    /// is how the core asks a backend that cannot serve them to say so.
     func relations(roomId: String, eventId: String, relType: String, eventType: String) async throws -> [FfiEventIn] {
-        throw FfiBackendError.Failed(errcode: nil, status: nil, reason: "Relations are not exposed by the SDK bindings")
+        []
     }
     
     func openidToken() async throws -> FfiOpenIdToken {
@@ -175,13 +176,16 @@ final class SdkMatrixBackend: MatrixBackend {
     
     private static let delayedEventsNotSupported = FfiBackendError.Failed(errcode: "M_UNRECOGNIZED",
                                                                           status: nil,
+                                                                          retryAfterMs: nil,
+                                                                          permanent: false,
                                                                           reason: "Delayed events are not exposed by the SDK bindings")
     
     /// Taken per send rather than kept: a handle is cheap, and one held across calls outlives the
     /// room if we leave it.
     private func room(_ roomID: String) throws(FfiBackendError) -> Room {
         guard let room = try? client.getRoom(roomId: roomID) else {
-            throw FfiBackendError.Failed(errcode: nil, status: nil, reason: "Not a joined room: \(roomID)")
+            // Final, and no Matrix code says so: inventing one would be a lie about the homeserver.
+            throw FfiBackendError.Failed(errcode: nil, status: nil, retryAfterMs: nil, permanent: true, reason: "Not a joined room: \(roomID)")
         }
         return room
     }

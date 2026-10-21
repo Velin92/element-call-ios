@@ -165,7 +165,8 @@ struct RaisedHandControlTests {
                               speaking: false,
                               handRaisedAtMs: 5,
                               handRaisedPosition: 3,
-                              reachable: true)
+                              connection: .connected,
+                              decryptable: true)
         #expect(MatrixRTCTile(ffi, localMemberID: "me").handRaisedPosition == 3)
     }
     

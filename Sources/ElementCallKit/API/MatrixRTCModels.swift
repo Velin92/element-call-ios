@@ -155,22 +155,42 @@ public nonisolated struct MatrixRTCStreamState: Sendable, Hashable {
     }
 }
 
+/// Whether the connection carrying a member's media is up.
+///
+/// On our own tile it is our own SFU. Never given up on for a remote member: a member who stays
+/// ``reconnecting`` for minutes is still being tried, and the call goes on around them.
+public nonisolated enum MatrixRTCConnectionState: Sendable, Hashable {
+    case connected
+    case reconnecting
+    /// No transport can serve what the member advertises.
+    case unreachable
+}
+
 /// The transport's view of a member; differs legitimately from the membership projection.
 public nonisolated struct MatrixRTCParticipant: Sendable, Hashable, Identifiable {
     public let memberID: String
     public let userID: String
     public let deviceID: String?
     public let isLocal: Bool
-    public let isReachable: Bool
+    public let connection: MatrixRTCConnectionState
+    public let isDecryptable: Bool
     public let streams: [MatrixRTCStreamState]
     public let handRaisedAt: Date?
     
-    public init(memberID: String, userID: String, deviceID: String?, isLocal: Bool, isReachable: Bool, streams: [MatrixRTCStreamState], handRaisedAt: Date?) {
+    public init(memberID: String,
+                userID: String,
+                deviceID: String?,
+                isLocal: Bool,
+                connection: MatrixRTCConnectionState = .connected,
+                isDecryptable: Bool = true,
+                streams: [MatrixRTCStreamState],
+                handRaisedAt: Date?) {
         self.memberID = memberID
         self.userID = userID
         self.deviceID = deviceID
         self.isLocal = isLocal
-        self.isReachable = isReachable
+        self.connection = connection
+        self.isDecryptable = isDecryptable
         self.streams = streams
         self.handRaisedAt = handRaisedAt
     }
@@ -218,7 +238,14 @@ public nonisolated struct MatrixRTCTile: Sendable, Hashable, Identifiable {
     /// in the call rather than over the tiles in the window, so every client shows the same number
     /// (009 R6). Never recomputed from ``handRaisedAt``.
     public let handRaisedPosition: Int?
-    public let isReachable: Bool
+    /// Whether the connection carrying this tile's media is up. **``hasVideo`` does not follow it**:
+    /// the core keeps that true through an outage because it also ranks the tiles and drives the
+    /// release of subscriptions, so a renderer gated on ``hasVideo`` alone would hold the last frame
+    /// of somebody who is no longer arriving.
+    public let connection: MatrixRTCConnectionState
+    /// False from the first frame that fails to decrypt until frames decrypt again. Always true on
+    /// our own tile, which is local capture.
+    public let isDecryptable: Bool
     
     public var memberID: String {
         id.memberID
@@ -242,7 +269,8 @@ public nonisolated struct MatrixRTCTile: Sendable, Hashable, Identifiable {
                 isSpeaking: Bool = false,
                 handRaisedAt: Date? = nil,
                 handRaisedPosition: Int? = nil,
-                isReachable: Bool = true) {
+                connection: MatrixRTCConnectionState = .connected,
+                isDecryptable: Bool = true) {
         self.id = id
         self.userID = userID
         self.deviceID = deviceID
@@ -253,7 +281,8 @@ public nonisolated struct MatrixRTCTile: Sendable, Hashable, Identifiable {
         self.isSpeaking = isSpeaking
         self.handRaisedAt = handRaisedAt
         self.handRaisedPosition = handRaisedPosition
-        self.isReachable = isReachable
+        self.connection = connection
+        self.isDecryptable = isDecryptable
     }
 }
 
@@ -399,7 +428,19 @@ public nonisolated enum MatrixRTCEndReason: Sendable, Hashable {
     case empty
     /// The slot the call was in was closed by a room administrator; the core left on its own.
     case slotClosed
-    case connectionClosed(message: String)
+    /// Our own SFU could not be kept, and the core left on its own. `message` is for the logs,
+    /// never for the screen: what the user is told comes from `reason`.
+    case connectionClosed(reason: MatrixRTCConnectionLossReason, message: String)
+}
+
+/// Why the core gave up on our own SFU.
+public nonisolated enum MatrixRTCConnectionLossReason: Sendable, Hashable {
+    /// Lost, and not back within the reconnect budget.
+    case budget
+    /// The SFU or its token service refused us. Never retried.
+    case refused
+    /// Never established within the budget from the connect request.
+    case neverConnected
 }
 
 public nonisolated enum MatrixRTCCallEvent: Sendable, Hashable {
@@ -487,6 +528,10 @@ public nonisolated enum MatrixRTCError: Error, Sendable {
     case roomNotReady(roomID: String)
     /// The join was refused because the room's slot for calls is closed.
     case slotClosed(String)
+    /// The homeserver did not let the join complete within the core's budget for it.
+    case joinTimedOut
+    /// The homeserver refused the join for good; `errcode` is its Matrix error code when it gave one.
+    case joinRefused(errcode: String?, reason: String)
     case ffi(String)
     case media(String)
 }

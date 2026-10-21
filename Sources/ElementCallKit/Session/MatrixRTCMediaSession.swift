@@ -56,7 +56,7 @@ public final class MatrixRTCMediaSession {
                              isMicrophoneMuted: !local.isPublishing(.microphone),
                              isSpeaking: false,
                              handRaisedAt: local.handRaisedAt,
-                             isReachable: local.isReachable)
+                             connection: local.connection)
     }
     
     public private(set) var audioLevels: [String: MatrixRTCAudioLevel] = [:]

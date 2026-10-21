@@ -41,6 +41,7 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
         var hasUnreadLocalState = false
         var pendingLocalState: CheckedContinuation<FfiLocalState?, Never>?
         var pendingEvent: CheckedContinuation<FfiCallEvent?, Never>?
+        var pendingInterruptions: CheckedContinuation<FfiInterruptions?, Never>?
         var hasEnded = false
         /// Tiles the next rosters carry detail for; nil for everything.
         var detailOnly: Set<MatrixRTCTileID>?
@@ -192,8 +193,28 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
         }
     }
     
+    /// Nothing is ever interrupted: the record only ever ends.
+    public func nextInterruptions() async -> FfiInterruptions? {
+        await withCheckedContinuation { continuation in
+            let ended = state.withLock { state -> Bool in
+                if state.hasEnded {
+                    return true
+                }
+                state.pendingInterruptions = continuation
+                return false
+            }
+            if ended {
+                continuation.resume(returning: nil)
+            }
+        }
+    }
+    
     public func roster() -> FfiTileRoster {
         state.withLock { $0.roster }
+    }
+    
+    public func interruptions() -> FfiInterruptions {
+        Self.uninterrupted
     }
     
     public func localState() -> FfiLocalState? {
@@ -221,18 +242,20 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
     }
     
     public func disconnect() async throws {
-        let pending = state.withLock { state -> (CheckedContinuation<FfiTileRoster?, Never>?, CheckedContinuation<FfiLocalState?, Never>?, CheckedContinuation<FfiCallEvent?, Never>?) in
+        let pending = state.withLock { state in
             state.hasEnded = true
             defer {
                 state.pendingRoster = nil
                 state.pendingLocalState = nil
                 state.pendingEvent = nil
+                state.pendingInterruptions = nil
             }
-            return (state.pendingRoster, state.pendingLocalState, state.pendingEvent)
+            return (state.pendingRoster, state.pendingLocalState, state.pendingEvent, state.pendingInterruptions)
         }
         pending.0?.resume(returning: nil)
         pending.1?.resume(returning: nil)
         pending.2?.resume(returning: nil)
+        pending.3?.resume(returning: nil)
     }
     
     // MARK: - MediaSessionProtocol: inert
@@ -270,6 +293,14 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
     
     // MARK: - Tokens to the bindings' records
     
+    private static let uninterrupted = FfiInterruptions(signalling: .reachable,
+                                                        ownMembershipLapsed: false,
+                                                        ownMedia: .connected,
+                                                        membersReconnecting: [],
+                                                        membersUnreachable: [],
+                                                        undecryptable: [],
+                                                        unmappable: [])
+    
     private static func reference(_ token: MatrixRTCScenario.Token) -> FfiTileRef {
         FfiTileRef(id: FfiTileId(memberId: token.memberID, kind: token.kind.ffi), userId: token.userID, hero: token.isHero)
     }
@@ -285,7 +316,8 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
                     speaking: token.isSpeaking,
                     handRaisedAtMs: handPosition.map { UInt64($0) },
                     handRaisedPosition: handPosition.map { UInt32($0) },
-                    reachable: true)
+                    connection: .connected,
+                    decryptable: true)
     }
     
     fileprivate static func localState(memberID: String, hasVideo: Bool, isMicrophoneMuted: Bool, handPosition: Int? = nil) -> FfiLocalState {
@@ -299,7 +331,8 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
                                         speaking: false,
                                         handRaisedAtMs: handPosition.map { UInt64($0) },
                                         handRaisedPosition: handPosition.map { UInt32($0) },
-                                        reachable: true),
+                                        connection: .connected,
+                                        decryptable: true),
                       isScreenSharing: false)
     }
 }

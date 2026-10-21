@@ -44,7 +44,7 @@ struct CallStatusTests {
         #expect(connected == .connected(since: Date(timeIntervalSince1970: 2), isDegraded: false))
         #expect(!connected.isDegraded)
         
-        #expect(MatrixRTCCallStatus(.ended(reason: .connectionClosed(message: "gone"))) == .ended(.connectionClosed(message: "gone")))
+        #expect(MatrixRTCCallStatus(.ended(reason: .connectionClosed(reason: .neverConnected, message: "gone"))) == .ended(.connectionClosed(reason: .neverConnected, message: "gone")))
     }
     
     /// Our media is up while the callee's phone still rings, and none of that is connected: the
@@ -133,7 +133,7 @@ struct CallStatusTests {
         #expect(ElementCallController.systemReason(for: .slotClosed) == .remoteEnded)
         #expect(ElementCallController.systemReason(for: .unanswered) == .unanswered)
         #expect(ElementCallController.systemReason(for: .ringNotSent) == .failed)
-        #expect(ElementCallController.systemReason(for: .connectionClosed(message: "gone")) == .failed)
+        #expect(ElementCallController.systemReason(for: .connectionClosed(reason: .budget, message: "gone")) == .failed)
     }
     
     /// A failure we showed is ended by our own leave, and is still a failure to the system.

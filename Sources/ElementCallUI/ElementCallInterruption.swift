@@ -5,6 +5,7 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+import ElementCallHost
 import ElementCallKit
 import Foundation
 
@@ -23,10 +24,14 @@ public nonisolated enum ElementCallInterruption: Hashable, Sendable {
     
     /// The core's causes mapped to entries (R38). `signalling` is passed apart from the record
     /// because it is the only cause that exists before media does (C4): a join made during an
-    /// outage has a server entry and no record yet.
-    static func entries(signalling: MatrixRTCSignallingHealth, record: MatrixRTCInterruptions?) -> [ElementCallInterruption] {
+    /// outage has a server entry and no record yet. Members in `arriving` are not counted as
+    /// undecryptable: see ``MatrixRTCMediaSession/keyArrivalGrace``.
+    static func entries(signalling: MatrixRTCSignallingHealth,
+                        record: MatrixRTCInterruptions?,
+                        arriving: Set<String> = []) -> [ElementCallInterruption] {
         var entries: [ElementCallInterruption] = []
-        let record = record ?? .none
+        var record = record ?? .none
+        record.undecryptable.removeAll { arriving.contains($0) }
         // A lapse with signalling back is the moment before the republish lands, and still true.
         if !signalling.isReachable || record.isOwnMembershipLapsed {
             // An unmappable participant alone is not an entry: one shows up for a moment on every
@@ -42,5 +47,14 @@ public nonisolated enum ElementCallInterruption: Hashable, Sendable {
             entries.append(.othersMedia)
         }
         return entries
+    }
+    
+    /// The entries for a controller's call, as the stage and the minimized bar both show them.
+    @MainActor
+    static func entries(for controller: ElementCallController) -> [ElementCallInterruption] {
+        guard controller.isInCall else { return [] }
+        return entries(signalling: controller.signalling,
+                       record: controller.call?.interruptions,
+                       arriving: controller.call?.membersWithinKeyArrivalGrace ?? [])
     }
 }

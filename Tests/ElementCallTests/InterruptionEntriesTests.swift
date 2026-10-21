@@ -67,6 +67,14 @@ struct InterruptionEntriesTests {
         }
     }
     
+    /// A newcomer nobody decrypts yet is the key rotation every join makes, not an interruption.
+    @Test
+    func anArrivingMemberIsNotYetUndecryptable() {
+        let record = MatrixRTCInterruptions(undecryptable: ["new", "old"])
+        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record, arriving: ["new"]) == [.othersMedia])
+        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record, arriving: ["new", "old"]).isEmpty)
+    }
+    
     @Test
     func ourOwnMediaUnreachableIsStillOurEntry() {
         let record = MatrixRTCInterruptions(ownMedia: .unreachable)
@@ -146,14 +154,6 @@ struct InterruptedTileTests {
         #expect(mine?.mediaState == .reconnecting)
         // Our picture is the camera in our hand, so it is never gated off.
         #expect(mine?.hasVideo == true)
-    }
-    
-    @Test
-    func theGraceRunsFromArrival() {
-        let start = ContinuousClock.now
-        let arrivals = ["early": start, "late": start + .seconds(4)]
-        let now = start + ElementCallScreenViewModel.keyArrivalGrace + .milliseconds(1)
-        #expect(ElementCallScreenViewModel.membersWithinKeyGrace(arrivals: arrivals, now: now) == ["late"])
     }
 }
 

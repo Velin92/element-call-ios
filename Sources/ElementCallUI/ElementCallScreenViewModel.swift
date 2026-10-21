@@ -195,17 +195,6 @@ public final class ElementCallScreenViewModel {
     /// call is not in listen mode, which is what makes a hero appearing or the call shrinking clear
     /// it (R3, R9).
     private var lastSpeakerID: MatrixRTCTileID?
-    /// When each member first reached the stage, for ``keyArrivalGrace``.
-    private var arrivals: [String: ContinuousClock.Instant] = [:]
-    private var keyGraceRefresh: Task<Void, Never>?
-    
-    /// How long a member may be undecryptable after reaching the stage before it shows. Every join
-    /// rotates the keys, and until the new key comes into use, up to `delayBeforeUse` later (5 s by
-    /// default), the newcomer and the others cannot decrypt each other (034 C6). That happens on
-    /// every join and is not a fault, so neither a spinner nor the indicator says it is; past this,
-    /// it is one. The renderer still shows the avatar meanwhile, since no frame decodes.
-    static let keyArrivalGrace: Duration = .seconds(5)
-    
     public init(controller: ElementCallController) {
         self.controller = controller
         let room = controller.room
@@ -319,11 +308,8 @@ public final class ElementCallScreenViewModel {
         state.isHandRaised = controller.isHandRaised
         state.isSignallingReachable = controller.signalling.isReachable
         state.isOwnMediaReconnecting = (controller.call?.interruptions.ownMedia ?? .connected) != .connected
-        let withinKeyGrace = trackArrivals(on: controller.call)
-        var record = controller.call?.interruptions
-        record?.undecryptable.removeAll { withinKeyGrace.contains($0) }
         // Above the guard as well: the server entry is the one that exists before media does.
-        state.interruptions = controller.isInCall ? ElementCallInterruption.entries(signalling: controller.signalling, record: record) : []
+        state.interruptions = ElementCallInterruption.entries(for: controller)
         
         if let message = controller.errorMessage {
             context.alertInfo = ElementCallAlert(title: context.style.strings.error, message: message)
@@ -363,7 +349,7 @@ public final class ElementCallScreenViewModel {
                                  youLabel: context.style.strings.you,
                                  isLocalMicrophoneMuted: call.isMicrophoneMuted,
                                  localHasVideo: call.isCameraEnabled,
-                                 withinKeyGrace: withinKeyGrace,
+                                 withinKeyGrace: call.membersWithinKeyArrivalGrace,
                                  // The flag is read before any stats, so that with the overlay down
                                  // none of them enters this method's observation access list.
                                  // `receiveStats` is rewritten every second whether anyone is looking
@@ -396,31 +382,6 @@ public final class ElementCallScreenViewModel {
         controller.setSpotlightTile(pictureInPicture.id, isExact: pictureInPicture.isExact)
         
         publish(state)
-    }
-    
-    /// Notes who is new to the stage and returns who still is, scheduling one refresh for when the
-    /// first of them stops being new, since nothing else changes at that moment to cause one.
-    private func trackArrivals(on call: MatrixRTCMediaSession?) -> Set<String> {
-        let present = Set(call?.tiles.order.map(\.id.memberID) ?? [])
-        let now = ContinuousClock.now
-        arrivals = arrivals.filter { present.contains($0.key) }
-        for memberID in present where arrivals[memberID] == nil {
-            arrivals[memberID] = now
-        }
-        let withinGrace = Self.membersWithinKeyGrace(arrivals: arrivals, now: now)
-        keyGraceRefresh?.cancel()
-        if let firstExpiry = withinGrace.compactMap({ arrivals[$0] }).min().map({ $0 + Self.keyArrivalGrace }) {
-            keyGraceRefresh = Task { [weak self] in
-                try? await Task.sleep(until: firstExpiry)
-                guard !Task.isCancelled else { return }
-                self?.refresh()
-            }
-        }
-        return withinGrace
-    }
-    
-    static func membersWithinKeyGrace(arrivals: [String: ContinuousClock.Instant], now: ContinuousClock.Instant) -> Set<String> {
-        Set(arrivals.filter { now - $0.value < keyArrivalGrace }.keys)
     }
     
     /// What a tile's media is doing, by its two causes. A lost connection wins: it is why nothing

@@ -33,6 +33,18 @@ public final class MatrixRTCMediaSession {
     /// What is interrupting the call, cause by cause. Published after the roster and local state of
     /// the same change, so tiles read when this moves already agree with it (034 C5).
     public private(set) var interruptions: MatrixRTCInterruptions = .none
+    /// Remote members on the roster for less than ``keyArrivalGrace``.
+    public private(set) var membersWithinKeyArrivalGrace: Set<String> = []
+    @ObservationIgnored private var knownMembers: Set<String> = []
+    @ObservationIgnored private var keyArrivalExpiries: [String: Task<Void, Never>] = [:]
+    
+    /// How long a member may be undecryptable after reaching the roster before a UI treats it as
+    /// an interruption. Every join rotates the keys, and until the new key comes into use, up to
+    /// `delayBeforeUse` later (5 s by default), the newcomer and the others cannot decrypt each
+    /// other (034 C6). That happens on every join and is not a fault; past this, it is one. Here
+    /// rather than in a view so the stage and the minimized bar agree, and on the call's clock so
+    /// a scenario can step past it.
+    public static let keyArrivalGrace: Duration = .seconds(5)
     
     /// Our own tile — and the reason this is not simply `localState?.tile`.
     ///
@@ -773,6 +785,7 @@ public final class MatrixRTCMediaSession {
         pendingReleases.values.forEach { $0.cancel() }
         pendingReleases.removeAll()
         tasks.forEach { $0.cancel() }
+        keyArrivalExpiries.values.forEach { $0.cancel() }
         tasks.removeAll()
         audioLevelFlush?.cancel()
         audioLevelFlush = nil
@@ -839,6 +852,23 @@ public final class MatrixRTCMediaSession {
         }
         tiles = mapped
         reconcilePlayback()
+        reconcileArrivals()
+    }
+    
+    private func reconcileArrivals() {
+        let present = Set(tiles.order.map(\.id.memberID))
+        for memberID in knownMembers.subtracting(present) {
+            keyArrivalExpiries.removeValue(forKey: memberID)?.cancel()
+            membersWithinKeyArrivalGrace.remove(memberID)
+        }
+        for memberID in present.subtracting(knownMembers) {
+            membersWithinKeyArrivalGrace.insert(memberID)
+            keyArrivalExpiries[memberID] = clock.schedule(after: Self.keyArrivalGrace) { [weak self] in
+                self?.membersWithinKeyArrivalGrace.remove(memberID)
+                self?.keyArrivalExpiries[memberID] = nil
+            }
+        }
+        knownMembers = present
     }
     
     private func apply(_ state: FfiLocalState?) {

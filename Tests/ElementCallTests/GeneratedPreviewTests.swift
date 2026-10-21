@@ -18,6 +18,13 @@ extension PreviewTests {
         }
     }
 
+    @Test("ElementCallFailureView")
+    func elementCallFailureView() async throws {
+        for (index, preview) in ElementCallFailureView_Previews._allPreviews.enumerated() {
+            try await assertSnapshots(matching: preview, step: index)
+        }
+    }
+
     @Test("ElementCallFullscreenChrome")
     func elementCallFullscreenChrome() async throws {
         for (index, preview) in ElementCallFullscreenChrome_Previews._allPreviews.enumerated() {

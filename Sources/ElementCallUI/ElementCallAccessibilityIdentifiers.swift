@@ -51,6 +51,8 @@ public nonisolated enum ElementCallAccessibilityIdentifiers {
     /// The service interruptions indicator, and the list it opens (034 R35, R36).
     public static let interruptions = "\(prefix).interruptions"
     public static let interruptionsList = "\(prefix).interruptionsList"
+    /// The failure screen's close button (034 R27).
+    public static let failureClose = "\(prefix).failureClose"
     
     /// A tile, identified by the member on it **and the stream it draws**.
     ///
@@ -85,6 +87,7 @@ public nonisolated enum ElementCallAccessibilityIdentifiers {
         case .overflow: more
         case .info: interruptions
         case .chevronRight: "\(prefix).chevronRight"
+        case .error: "\(prefix).error"
         case .spinner: "\(prefix).spinner"
         case .switchCamera: "\(prefix).switchCamera"
         case .raisedHand: "\(prefix).raisedHand"

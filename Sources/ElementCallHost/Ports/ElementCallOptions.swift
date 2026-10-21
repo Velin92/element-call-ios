@@ -144,13 +144,19 @@ public nonisolated struct ElementCallStrings: Sendable {
     public var calling: String
     /// What a screen reader says for the ringing avatar, given the callee's name.
     public var callingPerson: @Sendable (String) -> String
-    /// Why a call failed, one per cause, shown until the user closes the screen (034 R27). Short:
-    /// they sit in the top bar's status line, two lines at most.
+    /// Why a call failed, shown on the failure screen until the user closes it (034 R27): a title
+    /// per kind of failure, and a sentence per cause beneath it.
+    public var connectionLostTitle: String
+    public var connectionFailedTitle: String
+    public var joinFailedTitle: String
+    public var callFailedTitle: String
     public var connectionLost: String
     public var connectionRefused: String
     public var connectionNeverEstablished: String
     public var joinTimedOut: String
     public var joinRefused: String
+    /// The failure screen's one button.
+    public var close: String
     /// What a screen reader says for a control an interruption has disabled (034 R15).
     public var unavailable: String
     /// What a screen reader says for a tile's loading indicator: the connection carrying the
@@ -177,11 +183,16 @@ public nonisolated struct ElementCallStrings: Sendable {
                 headphones: String = "Headphones",
                 calling: String = "Calling\u{2026}",
                 callingPerson: @escaping @Sendable (String) -> String = { "Calling \($0)" },
-                connectionLost: String = "Connection lost and could not be restored",
-                connectionRefused: String = "The media server refused the connection",
-                connectionNeverEstablished: String = "Could not connect to the media server",
-                joinTimedOut: String = "Your server did not respond in time",
-                joinRefused: String = "Your server refused to let you join",
+                connectionLostTitle: String = "Connection lost",
+                connectionFailedTitle: String = "Couldn\u{2019}t connect",
+                joinFailedTitle: String = "Couldn\u{2019}t join the call",
+                callFailedTitle: String = "Call failed",
+                connectionLost: String = "Your connection to the call couldn\u{2019}t be restored.",
+                connectionRefused: String = "The call\u{2019}s media server refused the connection.",
+                connectionNeverEstablished: String = "The call\u{2019}s media server couldn\u{2019}t be reached.",
+                joinTimedOut: String = "Your server didn\u{2019}t respond in time.",
+                joinRefused: String = "Your server refused to let you join.",
+                close: String = "Close",
                 unavailable: String = "Unavailable",
                 mediaReconnecting: String = "Reconnecting",
                 mediaUndecryptable: String = "Waiting for encryption keys",
@@ -201,11 +212,16 @@ public nonisolated struct ElementCallStrings: Sendable {
         self.headphones = headphones
         self.calling = calling
         self.callingPerson = callingPerson
+        self.connectionLostTitle = connectionLostTitle
+        self.connectionFailedTitle = connectionFailedTitle
+        self.joinFailedTitle = joinFailedTitle
+        self.callFailedTitle = callFailedTitle
         self.connectionLost = connectionLost
         self.connectionRefused = connectionRefused
         self.connectionNeverEstablished = connectionNeverEstablished
         self.joinTimedOut = joinTimedOut
         self.joinRefused = joinRefused
+        self.close = close
         self.unavailable = unavailable
         self.mediaReconnecting = mediaReconnecting
         self.mediaUndecryptable = mediaUndecryptable
@@ -217,7 +233,17 @@ public nonisolated struct ElementCallStrings: Sendable {
         self.othersMediaInterrupted = othersMediaInterrupted
     }
     
-    /// The text for a failure.
+    /// The failure screen's title for a failure.
+    public func title(for failure: ElementCallFailure) -> String {
+        switch failure {
+        case .connectionLost(.budget): connectionLostTitle
+        case .connectionLost(.refused), .connectionLost(.neverConnected): connectionFailedTitle
+        case .joinTimedOut, .joinRefused: joinFailedTitle
+        case .other: callFailedTitle
+        }
+    }
+    
+    /// The sentence beneath the title.
     public func text(for failure: ElementCallFailure) -> String {
         switch failure {
         case .connectionLost(.budget): connectionLost

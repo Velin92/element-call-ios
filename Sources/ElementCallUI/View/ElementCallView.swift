@@ -44,9 +44,13 @@ struct ElementCallView: View {
         GeometryReader { geometry in
             let isLandscape = geometry.size.width > geometry.size.height
             ZStack {
-                // Minimized (bar or Picture in Picture): nothing mounted, so the tiles' streams close
-                // and only the window's own slot keeps decoding.
-                if context.viewState.isMaximized {
+                // A failed call is over: its screen says why and offers the way out, and nothing
+                // of the call is left to draw (034 R27).
+                if case .failed(let failure) = context.viewState.connection {
+                    ElementCallFailureView(failure: failure) { context.send(viewAction: .hangUp) }
+                } else if context.viewState.isMaximized {
+                    // Minimized (bar or Picture in Picture): nothing mounted, so the tiles' streams
+                    // close and only the window's own slot keeps decoding.
                     style.theme.bgCanvasDefault.ignoresSafeArea()
                     
                     // The whole container, whatever the chrome is doing: the chrome is drawn over

@@ -147,6 +147,7 @@ public nonisolated struct ElementCallTokenIcons: ElementCallIconRenderingProtoco
         case .collapse: icons.collapse
         case .info: icons.infoSolid
         case .chevronRight: icons.chevronRight
+        case .error: icons.errorSolid
         case .spinner: icons.spinner
         }
     }

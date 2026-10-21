@@ -26,7 +26,7 @@ struct InterruptionEntriesTests {
     @Test
     func theServerEntryNeedsNoMedia() {
         #expect(ElementCallInterruption.entries(signalling: outage, record: nil)
-            == [.ownServer(isMembershipLapsed: false, hasUnverifiedParticipant: false)])
+            == [.ownServer(isMembershipLapsed: false)])
     }
     
     @Test
@@ -39,11 +39,10 @@ struct InterruptionEntriesTests {
                                             unmappable: ["PA_xyz"])
         
         #expect(ElementCallInterruption.entries(signalling: outage, record: record)
-            == [.ownServer(isMembershipLapsed: true, hasUnverifiedParticipant: true), .ownMedia, .othersMedia])
+            == [.ownServer(isMembershipLapsed: true), .ownMedia, .othersMedia])
     }
     
-    /// One shows up for a moment on every ordinary join, so it says something only while the
-    /// homeserver that would introduce them is away.
+    /// They get no tile and none of our keys, so there is nothing to tell the user, outage or not.
     @Test
     func anUnmappableParticipantAloneIsNoEntry() {
         let record = MatrixRTCInterruptions(unmappable: ["PA_xyz"])
@@ -55,7 +54,7 @@ struct InterruptionEntriesTests {
     func aLapseOutlivesTheOutage() {
         let record = MatrixRTCInterruptions(isOwnMembershipLapsed: true)
         #expect(ElementCallInterruption.entries(signalling: .reachable, record: record)
-            == [.ownServer(isMembershipLapsed: true, hasUnverifiedParticipant: false)])
+            == [.ownServer(isMembershipLapsed: true)])
     }
     
     @Test
@@ -157,21 +156,14 @@ struct InterruptedTileTests {
     }
 }
 
-/// What the list says (034 R13, R16, R17).
+/// What the list says (034 R13, R17).
 @Suite("Interruption text")
 struct InterruptionTextTests {
     private let strings = ElementCallStrings()
     
     @Test
     func theLapseChangesTheServerEntryRatherThanAddingOne() {
-        #expect(strings.text(for: .ownServer(isMembershipLapsed: false, hasUnverifiedParticipant: false)) == strings.ownServerUnreachable)
-        #expect(strings.text(for: .ownServer(isMembershipLapsed: true, hasUnverifiedParticipant: false)) == strings.ownServerLapsed)
-    }
-    
-    @Test
-    func anUnverifiedParticipantIsNamedInTheServerEntry() {
-        let text = strings.text(for: .ownServer(isMembershipLapsed: false, hasUnverifiedParticipant: true))
-        #expect(text.hasPrefix(strings.ownServerUnreachable))
-        #expect(text.hasSuffix(strings.unverifiedParticipant))
+        #expect(strings.text(for: .ownServer(isMembershipLapsed: false)) == strings.ownServerUnreachable)
+        #expect(strings.text(for: .ownServer(isMembershipLapsed: true)) == strings.ownServerLapsed)
     }
 }

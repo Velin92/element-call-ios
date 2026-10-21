@@ -79,13 +79,12 @@ struct ElementCallInterruptionsList: View {
 }
 
 extension ElementCallStrings {
-    /// An entry's text. The lapse and an unverifiable participant change what the server entry
-    /// says rather than adding entries of their own (R13).
+    /// An entry's text. The lapse changes what the server entry says rather than adding an entry
+    /// of its own (R13).
     func text(for interruption: ElementCallInterruption) -> String {
         switch interruption {
-        case .ownServer(let isMembershipLapsed, let hasUnverifiedParticipant):
-            let server = isMembershipLapsed ? ownServerLapsed : ownServerUnreachable
-            return hasUnverifiedParticipant ? "\(server) \(unverifiedParticipant)" : server
+        case .ownServer(let isMembershipLapsed):
+            return isMembershipLapsed ? ownServerLapsed : ownServerUnreachable
         case .ownMedia:
             return ownMediaReconnecting
         case .othersMedia:
@@ -110,9 +109,9 @@ struct ElementCallInterruptionsIndicator_Previews: PreviewProvider, TestablePrev
             .previewDisplayName("Indicator")
         list([.othersMedia])
             .previewDisplayName("One entry")
-        list([.ownServer(isMembershipLapsed: false, hasUnverifiedParticipant: true), .othersMedia])
-            .previewDisplayName("Server with an unverified participant")
-        list([.ownServer(isMembershipLapsed: true, hasUnverifiedParticipant: false), .ownMedia, .othersMedia])
+        list([.ownServer(isMembershipLapsed: false), .othersMedia])
+            .previewDisplayName("Server and others")
+        list([.ownServer(isMembershipLapsed: true), .ownMedia, .othersMedia])
             .previewDisplayName("Every entry, lapsed")
     }
 }

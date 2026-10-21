@@ -649,7 +649,7 @@ struct ElementCallView_Previews: PreviewProvider, TestablePreview {
             tile.displayName == "Dan" ? ElementCallPreviewFixtures.tile("Dan", hasVideo: true, mediaState: .reconnecting) : tile
         }
         var state = ElementCallPreviewFixtures.connected(tiles: tiles)
-        state.interruptions = [.ownServer(isMembershipLapsed: false, hasUnverifiedParticipant: false), .othersMedia]
+        state.interruptions = [.ownServer(isMembershipLapsed: false), .othersMedia]
         state.isSignallingReachable = false
         let context = ElementCallScreenContext.preview(state: state)
         context.stageChrome = .pinned(isVisible: isChromeVisible)

@@ -161,12 +161,10 @@ public nonisolated struct ElementCallStrings: Sendable {
     /// R40). Short: it sits over the stage.
     public var interruptions: String
     public var interruptionsResolved: String
-    /// The list's entries (034 R13, R16, R17, R23, R29). The server entry reads `ownServerLapsed`
-    /// once the others have dropped us, with `unverifiedParticipant` after it while someone is on
-    /// the call who cannot be checked yet.
+    /// The list's entries (034 R13, R17, R23, R29). The server entry reads `ownServerLapsed` once
+    /// the others have dropped us.
     public var ownServerUnreachable: String
     public var ownServerLapsed: String
-    public var unverifiedParticipant: String
     public var ownMediaReconnecting: String
     public var othersMediaInterrupted: String
     
@@ -192,7 +190,6 @@ public nonisolated struct ElementCallStrings: Sendable {
                 ownServerUnreachable: String = "Your server is unreachable. Some services are temporarily unavailable.",
                 // The same as above until 034's Q5 settles whether a lapse stops our media at all.
                 ownServerLapsed: String = "Your server is unreachable. Some services are temporarily unavailable.",
-                unverifiedParticipant: String = "Someone has joined whose identity can\u{2019}t be checked until it\u{2019}s back.",
                 ownMediaReconnecting: String = "Reconnecting your audio and video",
                 othersMediaInterrupted: String = "Some participants\u{2019} audio or video isn\u{2019}t reaching you") {
         self.you = you
@@ -216,7 +213,6 @@ public nonisolated struct ElementCallStrings: Sendable {
         self.interruptionsResolved = interruptionsResolved
         self.ownServerUnreachable = ownServerUnreachable
         self.ownServerLapsed = ownServerLapsed
-        self.unverifiedParticipant = unverifiedParticipant
         self.ownMediaReconnecting = ownMediaReconnecting
         self.othersMediaInterrupted = othersMediaInterrupted
     }

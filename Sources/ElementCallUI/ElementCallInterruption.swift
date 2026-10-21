@@ -13,10 +13,13 @@ import Foundation
 /// trouble is on (034 R13, R23, R29). Three at most, in this order, however many causes the core
 /// reports; the tiles and the controls carry the detail.
 public nonisolated enum ElementCallInterruption: Hashable, Sendable {
-    /// Our homeserver does not answer. `isMembershipLapsed` once the others have dropped us and can
-    /// no longer see or hear us (R17); `hasUnverifiedParticipant` while someone is on the call whose
-    /// identity cannot be checked until it answers again (R16).
-    case ownServer(isMembershipLapsed: Bool, hasUnverifiedParticipant: Bool)
+    /// Our homeserver does not answer. `isMembershipLapsed` once the others have dropped us (R17).
+    ///
+    /// Nothing says when someone is on the call whose membership has not reached us (R16's
+    /// "unverifiable participant", the record's `unmappable`): they get no tile and, having no
+    /// membership, none of our keys, so they can neither be seen nor hear us, and there is nothing
+    /// for the user to do. They appear as an ordinary join when the server returns.
+    case ownServer(isMembershipLapsed: Bool)
     /// Our own media server is being reconnected (R23).
     case ownMedia
     /// Somebody else's media is not reaching us, or cannot be decrypted (R29).
@@ -34,11 +37,7 @@ public nonisolated enum ElementCallInterruption: Hashable, Sendable {
         record.undecryptable.removeAll { arriving.contains($0) }
         // A lapse with signalling back is the moment before the republish lands, and still true.
         if !signalling.isReachable || record.isOwnMembershipLapsed {
-            // An unmappable participant alone is not an entry: one shows up for a moment on every
-            // ordinary join, the transport being quicker than the membership. It means something
-            // only while the homeserver that would introduce them cannot.
-            entries.append(.ownServer(isMembershipLapsed: record.isOwnMembershipLapsed,
-                                      hasUnverifiedParticipant: !record.unmappable.isEmpty))
+            entries.append(.ownServer(isMembershipLapsed: record.isOwnMembershipLapsed))
         }
         if record.ownMedia != .connected {
             entries.append(.ownMedia)

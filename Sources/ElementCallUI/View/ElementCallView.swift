@@ -482,8 +482,8 @@ struct ElementCallView: View {
             }
         case .ended:
             Text("Call ended").font(style.theme.bodySM).foregroundStyle(style.theme.textSecondary)
-        case .failed(let message):
-            Text(message).font(style.theme.bodySM).foregroundStyle(style.theme.textCriticalPrimary).lineLimit(2)
+        case .failed(let failure):
+            Text(style.strings.text(for: failure)).font(style.theme.bodySM).foregroundStyle(style.theme.textCriticalPrimary).lineLimit(2)
         }
     }
     
@@ -585,7 +585,7 @@ struct ElementCallView: View {
 
 struct ElementCallView_Previews: PreviewProvider, TestablePreview {
     static let joiningViewModel = ElementCallScreenPreviewFactory.makeViewModel(connection: .joining)
-    static let failedViewModel = ElementCallScreenPreviewFactory.makeViewModel(connection: .failed("Homeserver offers no LiveKit transport"))
+    static let failedViewModel = ElementCallScreenPreviewFactory.makeViewModel(connection: .failed(.other("Homeserver offers no LiveKit transport")))
     
     static func screen(_ state: ElementCallScreenViewState) -> some View {
         ElementCallView(context: .preview(state: state),

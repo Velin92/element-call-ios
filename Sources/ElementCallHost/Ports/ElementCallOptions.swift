@@ -135,6 +135,13 @@ public nonisolated struct ElementCallStrings: Sendable {
     public var calling: String
     /// What a screen reader says for the ringing avatar, given the callee's name.
     public var callingPerson: @Sendable (String) -> String
+    /// Why a call failed, one per cause, shown until the user closes the screen (034 R27). Short:
+    /// they sit in the top bar's status line, two lines at most.
+    public var connectionLost: String
+    public var connectionRefused: String
+    public var connectionNeverEstablished: String
+    public var joinTimedOut: String
+    public var joinRefused: String
     
     public init(you: String = "You",
                 error: String = "Error",
@@ -144,7 +151,12 @@ public nonisolated struct ElementCallStrings: Sendable {
                 phone: String = "Phone",
                 headphones: String = "Headphones",
                 calling: String = "Calling\u{2026}",
-                callingPerson: @escaping @Sendable (String) -> String = { "Calling \($0)" }) {
+                callingPerson: @escaping @Sendable (String) -> String = { "Calling \($0)" },
+                connectionLost: String = "Connection lost and could not be restored",
+                connectionRefused: String = "The media server refused the connection",
+                connectionNeverEstablished: String = "Could not connect to the media server",
+                joinTimedOut: String = "Your server did not respond in time",
+                joinRefused: String = "Your server refused to let you join") {
         self.you = you
         self.error = error
         self.stop = stop
@@ -154,5 +166,22 @@ public nonisolated struct ElementCallStrings: Sendable {
         self.headphones = headphones
         self.calling = calling
         self.callingPerson = callingPerson
+        self.connectionLost = connectionLost
+        self.connectionRefused = connectionRefused
+        self.connectionNeverEstablished = connectionNeverEstablished
+        self.joinTimedOut = joinTimedOut
+        self.joinRefused = joinRefused
+    }
+    
+    /// The text for a failure.
+    public func text(for failure: ElementCallFailure) -> String {
+        switch failure {
+        case .connectionLost(.budget): connectionLost
+        case .connectionLost(.refused): connectionRefused
+        case .connectionLost(.neverConnected): connectionNeverEstablished
+        case .joinTimedOut: joinTimedOut
+        case .joinRefused: joinRefused
+        case .other(let message): message
+        }
     }
 }

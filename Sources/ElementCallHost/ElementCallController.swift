@@ -21,7 +21,24 @@ public nonisolated enum ElementCallConnection: Equatable, Sendable {
     case calling(callee: String, ring: MatrixRTCRingPhase)
     case connected
     case ended(MatrixRTCEndReason)
-    case failed(String)
+    /// The call could not start or could not be kept. Final, like ``ended(_:)``, but the screen stays
+    /// up showing why until the user closes it (034 R27).
+    case failed(ElementCallFailure)
+}
+
+/// Why a call failed, typed so a host words each one through ``ElementCallStrings`` and both
+/// platforms say the same thing for the same cause (034 R27).
+public nonisolated enum ElementCallFailure: Equatable, Sendable {
+    /// Our own media server was lost and not back within the core's budget, refused us, or was
+    /// never reached.
+    case connectionLost(MatrixRTCConnectionLossReason)
+    /// The homeserver did not let the join complete in time.
+    case joinTimedOut
+    /// The homeserver refused the join for good.
+    case joinRefused
+    /// Anything else that stopped the call from starting: the room not opening, the microphone not
+    /// publishing. Developer text, shown as it is, which is what every failure was before 034.
+    case other(String)
 }
 
 /// What the host has to do about a change in the call, beyond drawing it.
@@ -30,7 +47,8 @@ public nonisolated enum ElementCallControllerAction: Sendable {
     case minimizeRequested
     /// The user asked to come back to the full-screen call, from the bar or the system window.
     case restoreRequested
-    /// The call is over and its screen should go away.
+    /// The call is over and its screen should go away. After a failure this comes only once the
+    /// user has closed the screen, which shows why the call failed until then (034 R27).
     case ended
     /// A Picture in Picture window opened, possibly because the app was backgrounded rather than
     /// because anyone asked. Whatever the host put in the minimized slot should come down.
@@ -216,6 +234,7 @@ public final class ElementCallController {
             log(.warning, "already in a call, ignoring start for \(room.roomID)")
             return
         }
+        isHoldingFailure = false
         self.callData = callData
         self.room = room
         connection = .joining
@@ -238,7 +257,13 @@ public final class ElementCallController {
         runTask = Task { await runCall(callData, room: room) }
     }
     
+    /// On a failed call, which has already ended, this is the user closing the screen that says why.
     public func hangUp() {
+        if isHoldingFailure {
+            isHoldingFailure = false
+            actionsSubject.send(.ended)
+            return
+        }
         Task { await endCall(.left) }
     }
     
@@ -545,6 +570,12 @@ public final class ElementCallController {
         let rtcCall: MatrixRTCCall
         do {
             rtcCall = try await rtcRoom.joinCall(kind: Self.kind(for: callData, isDirect: room.isDirect))
+        } catch MatrixRTCError.joinTimedOut {
+            fail(.joinTimedOut)
+            return nil
+        } catch MatrixRTCError.joinRefused(let errcode, let reason) {
+            fail(.joinRefused, "Join refused: \(errcode ?? "no code") \(reason)")
+            return nil
         } catch {
             fail("Join failed: \(error)")
             return nil
@@ -684,10 +715,19 @@ public final class ElementCallController {
     }
     
     private func fail(_ message: String) {
-        log(.error, message)
-        connection = .failed(message)
+        fail(.other(message), message)
+    }
+    
+    private func fail(_ failure: ElementCallFailure, _ message: String? = nil) {
+        log(.error, message ?? "call failed: \(failure)")
+        connection = .failed(failure)
         Task { await endCall(.left) }
     }
+    
+    /// A failure has ended the call and its screen stays up to say why, until ``hangUp()`` closes
+    /// it. Held here rather than left to the host because every host would otherwise dismiss on
+    /// ``ElementCallControllerAction/ended`` as before, and the reason would flash and go.
+    private var isHoldingFailure = false
     
     /// Tears down what a join produced after the call was ended under it. Leaving is idempotent, so a
     /// call that already left costs nothing to leave again.
@@ -743,7 +783,10 @@ public final class ElementCallController {
         spotlightTileID = nil
         isSpotlightTileExact = false
         
-        if case .failed = connection {
+        if case .connectionClosed(let loss, let message) = reason {
+            log(.error, "connection lost (\(loss)): \(message)")
+            connection = .failed(.connectionLost(loss))
+        } else if case .failed = connection {
             // Keep the failure visible until the screen is dismissed.
         } else {
             connection = .ended(reason)
@@ -752,8 +795,17 @@ public final class ElementCallController {
         updateProximityMonitoring()
         // The screen closes now (030 R13), and the audio after it: a decline's or a timeout's sound
         // plays to its end first (R25), and the system call ends with it, since ending that is
-        // what takes the audio session away.
-        actionsSubject.send(.ended)
+        // what takes the audio session away. A failure keeps it up instead, brought back from a
+        // minimized call if need be, since the reason is on the call screen (034 R27).
+        if case .failed = connection {
+            isHoldingFailure = true
+            if !isMaximized {
+                restore()
+                actionsSubject.send(.restoreRequested)
+            }
+        } else {
+            actionsSubject.send(.ended)
+        }
         await endedCall?.releaseAudio()
         system.endCall(roomID: roomID, reason: systemReason)
         // Paired with the activation in `activateAudio` through the same predicate, so the two
@@ -772,6 +824,7 @@ public final class ElementCallController {
     /// Back to idle once the screen has gone; a new call can start.
     public func reset() {
         guard !isInCall else { return }
+        isHoldingFailure = false
         callData = nil
         room = nil
         connection = .idle

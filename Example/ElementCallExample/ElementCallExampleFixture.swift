@@ -134,7 +134,7 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case .ringingUnanswered: "The ring runs out at 6 s: the screen closes and the timeout sound plays out."
         case .joining: "Before there is a call to render."
         case .connectingMedia: "Joined, waiting on media."
-        case .failed: "The error the screen shows once and clears."
+        case .failed: "Why the call failed, until the user closes the screen."
         case .ended: "After hanging up, before the screen goes away."
         }
     }
@@ -256,7 +256,7 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case .connectingMedia:
             return .connecting(.connectingMedia)
         case .failed:
-            return .connecting(.failed("Homeserver offers no LiveKit transport"))
+            return .connecting(.failed(.other("Homeserver offers no LiveKit transport")))
         case .ended:
             return .connecting(.ended(.left))
         }

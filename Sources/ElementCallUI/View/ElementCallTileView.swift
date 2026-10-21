@@ -516,7 +516,9 @@ struct ElementCallTileView: View, Equatable {
             .foregroundStyle(style.theme.textPrimary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color.black.opacity(0.5), in: Capsule())
+            // Opaque, as the design has it: a translucent pill let the picture through, and over a
+            // bright one the name tag's spinner disappeared.
+            .background(style.theme.bgCanvasDefault, in: Capsule())
     }
 }
 

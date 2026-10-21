@@ -8,6 +8,13 @@
 import ElementCall
 import Foundation
 
+extension Duration {
+    /// Whole seconds, for a timeline's label.
+    var seconds: Int64 {
+        components.seconds
+    }
+}
+
 /// An outage fixture's timeline (`harness/fixtures.md`, "Outages"): the interruptions record the
 /// core would publish, moment by moment, on a group call whose tiles follow it.
 ///
@@ -43,7 +50,9 @@ struct ElementCallExampleOutage {
         await playback.step()
         await playback.step()
         var elapsed = Duration.zero
-        for (at, step) in timeline {
+        var last: String?
+        for (index, (at, step)) in timeline.enumerated() {
+            playback.timeline = (index, timeline.count, [last, "next at \(at.seconds) s"].compactMap(\.self).joined(separator: " · "))
             try? await Task.sleep(for: at - elapsed)
             elapsed = at
             guard !Task.isCancelled else { return }
@@ -58,7 +67,39 @@ struct ElementCallExampleOutage {
             case .connectionLost(let reason):
                 scripted.report(.ended(.connectionClosed(reason: reason, message: "scripted")))
             }
+            last = "\(at.seconds) s: \(Self.describe(step))"
+            playback.timeline = (index + 1, timeline.count, last ?? "")
         }
+    }
+    
+    /// What a step did, in the fixture table's words, for the scrubber.
+    private static func describe(_ step: Step) -> String {
+        guard case .interruptions(let record) = step else {
+            if case .connectionLost(let reason) = step {
+                return "connection lost (\(reason))"
+            }
+            return ""
+        }
+        func names(_ memberIDs: [String]) -> String {
+            memberIDs.map { $0.dropFirst().prefix { $0 != ":" }.capitalized }.joined(separator: ", ")
+        }
+        var causes: [String] = []
+        if !record.signalling.isReachable {
+            causes.append("signalling unreachable")
+        }
+        if record.isOwnMembershipLapsed {
+            causes.append("membership lapsed")
+        }
+        if record.ownMedia != .connected {
+            causes.append("our media reconnecting")
+        }
+        if !record.membersReconnecting.isEmpty {
+            causes.append("\(names(record.membersReconnecting)) reconnecting")
+        }
+        if !record.undecryptable.isEmpty {
+            causes.append("\(names(record.undecryptable)) undecryptable")
+        }
+        return causes.isEmpty ? "nothing interrupted" : causes.joined(separator: ", ")
     }
     
     // MARK: - The fixtures

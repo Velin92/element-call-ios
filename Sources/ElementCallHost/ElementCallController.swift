@@ -84,6 +84,10 @@ public final class ElementCallController {
     /// The last failure worth telling the user about; the screen shows it once and clears it.
     public var errorMessage: String?
     
+    /// Whether our homeserver answers, followed from the start of a call until it ends (034 C4).
+    /// The only source while there is no media yet: the controls are live from the join.
+    public private(set) var signalling: MatrixRTCSignallingHealth = .reachable
+    
     /// Our membership in the room's call, from the join until the call ends.
     public private(set) var rtcCall: MatrixRTCCall?
     public private(set) var call: MatrixRTCMediaSession?
@@ -168,6 +172,7 @@ public final class ElementCallController {
     private let logger: (any ElementCallLoggingProtocol)?
     private let actionsSubject = PassthroughSubject<ElementCallControllerAction, Never>()
     private var statusTask: Task<Void, Never>?
+    private var signallingTask: Task<Void, Never>?
     private var routeObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
     
@@ -254,7 +259,15 @@ public final class ElementCallController {
                                                                   style: style))
         }
         
+        followSignalling()
         runTask = Task { await runCall(callData, room: room) }
+    }
+    
+    /// From the host's Matrix client: it has gone offline, or a request has succeeded since it was.
+    /// Report the transition out of offline only, never sync merely starting (034 C3). Optional:
+    /// without it the core goes by its own sends, which notice an outage at the next one.
+    public func reportConnectivity(isOnline: Bool) {
+        rtcClient.reportConnectivity(isOnline: isOnline)
     }
     
     /// On a failed call, which has already ended, this is the user closing the screen that says why.
@@ -633,6 +646,20 @@ public final class ElementCallController {
         startAudioIfReady()
     }
     
+    private func followSignalling() {
+        signallingTask?.cancel()
+        let updates = rtcClient.signallingUpdates()
+        signallingTask = Task { [weak self] in
+            for await health in updates {
+                guard let self, !Task.isCancelled else { return }
+                if health != signalling {
+                    log(.info, "signalling \(health)")
+                    signalling = health
+                }
+            }
+        }
+    }
+    
     /// The connection follows the core from the join on.
     func follow(_ rtcCall: MatrixRTCCall, roomID: String) {
         apply(rtcCall.status, roomID: roomID)
@@ -759,6 +786,9 @@ public final class ElementCallController {
         runTask = nil
         statusTask?.cancel()
         statusTask = nil
+        signallingTask?.cancel()
+        signallingTask = nil
+        signalling = .reachable
         pictureInPicture.unbind()
         
         let endedCall = rtcCall

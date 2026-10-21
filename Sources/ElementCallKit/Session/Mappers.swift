@@ -119,6 +119,15 @@ nonisolated extension MatrixRTCConnectionLossReason {
     }
 }
 
+nonisolated extension MatrixRTCSignallingHealth {
+    init(_ health: FfiSignallingHealth) {
+        switch health {
+        case .reachable: self = .reachable
+        case .unreachable(let sinceMs): self = .unreachable(since: Date(milliseconds: sinceMs))
+        }
+    }
+}
+
 nonisolated extension MatrixRTCConnectionState {
     init(_ state: FfiConnectionState) {
         switch state {

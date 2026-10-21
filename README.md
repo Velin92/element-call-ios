@@ -116,6 +116,11 @@ in your app rather than at the flag that enables calls. `isScreenSharingEnabled`
 default**, because sharing needs work on the host side before it behaves; turn it on when you are
 ready. Receiving someone else's share never depends on either.
 
+One call is worth making if your client can tell: `controller.reportConnectivity(isOnline:)`, with
+`false` when your Matrix client goes offline and `true` once a request has succeeded again — not
+when sync merely starts. It lets a call show "your server is unreachable" at once and retry its
+sends the moment the server is back. Without it the call notices at its next send, which is fine.
+
 Every port has a fake shipped alongside it, so previews and tests need no host at all.
 
 ### Theming, and why it is a port

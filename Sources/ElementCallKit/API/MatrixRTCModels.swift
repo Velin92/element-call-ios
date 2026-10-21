@@ -380,6 +380,20 @@ public nonisolated enum MatrixRTCFrameEncryptionState: Sendable, Hashable {
     case ok, missingKey, decryptionFailed, encryptionFailed, internalError
 }
 
+/// Whether our homeserver answers, as the core sees it from its own sends and from the host's
+/// connectivity report (034 C3, C4). One for the whole account: one homeserver serves every room.
+/// Media does not depend on it, so a call goes on while it is unreachable, with what needs the
+/// homeserver — a hand, a reaction, a newcomer's keys — waiting for it.
+public nonisolated enum MatrixRTCSignallingHealth: Sendable, Hashable {
+    case reachable
+    /// `since` is when it stopped answering, and holds until it answers again.
+    case unreachable(since: Date)
+    
+    public var isReachable: Bool {
+        self == .reachable
+    }
+}
+
 /// Where a joined call is, from the core: it combines our media with whether anybody is there to
 /// talk to, which neither side knows alone. Our media is up seconds before a DM's callee answers.
 public nonisolated enum MatrixRTCCallStatus: Sendable, Hashable {

@@ -142,6 +142,8 @@ public nonisolated struct ElementCallStrings: Sendable {
     public var connectionNeverEstablished: String
     public var joinTimedOut: String
     public var joinRefused: String
+    /// What a screen reader says for a control an interruption has disabled (034 R15).
+    public var unavailable: String
     
     public init(you: String = "You",
                 error: String = "Error",
@@ -156,7 +158,8 @@ public nonisolated struct ElementCallStrings: Sendable {
                 connectionRefused: String = "The media server refused the connection",
                 connectionNeverEstablished: String = "Could not connect to the media server",
                 joinTimedOut: String = "Your server did not respond in time",
-                joinRefused: String = "Your server refused to let you join") {
+                joinRefused: String = "Your server refused to let you join",
+                unavailable: String = "Unavailable") {
         self.you = you
         self.error = error
         self.stop = stop
@@ -171,6 +174,7 @@ public nonisolated struct ElementCallStrings: Sendable {
         self.connectionNeverEstablished = connectionNeverEstablished
         self.joinTimedOut = joinTimedOut
         self.joinRefused = joinRefused
+        self.unavailable = unavailable
     }
     
     /// The text for a failure.

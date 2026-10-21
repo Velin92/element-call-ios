@@ -72,3 +72,28 @@ struct InterruptionEntriesTests {
         #expect(ElementCallInterruption.entries(signalling: .reachable, record: record) == [.ownMedia])
     }
 }
+
+/// What an interruption disables, and what it never does (034 R15).
+@Suite("Interrupted controls")
+@MainActor
+struct InterruptedControlsTests {
+    typealias Fixtures = ElementCallPreviewFixtures
+    
+    @Test
+    func theHandWaitsForOurServer() {
+        var state = Fixtures.connected(tiles: Fixtures.group)
+        #expect(state.isHandControlEnabled)
+        state.isSignallingReachable = false
+        #expect(!state.isHandControlEnabled)
+    }
+    
+    /// A share in progress can always be stopped; only starting one needs our media server.
+    @Test
+    func onlyStartingAShareWaitsForOurMediaServer() {
+        var state = Fixtures.connected(tiles: Fixtures.group, isScreenSharingEnabled: true)
+        state.isOwnMediaReconnecting = true
+        #expect(!state.isScreenShareControlEnabled)
+        state.isScreenSharing = true
+        #expect(state.isScreenShareControlEnabled)
+    }
+}

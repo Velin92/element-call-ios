@@ -99,6 +99,11 @@ public nonisolated struct ElementCallScreenViewState: Equatable, Sendable {
     public var isHandRaised = false
     /// Joined: there is a membership to put a hand on.
     public var isHandRaiseAvailable = false
+    /// Our homeserver answers. While it does not, the hand is disabled: a raise could not reach
+    /// anyone (034 R15).
+    public var isSignallingReachable = true
+    /// Our own media server is being reconnected, so a share could not start (034 R15).
+    public var isOwnMediaReconnecting = false
     /// What the service interruptions list shows, at most one entry per kind; empty when nothing is
     /// interrupted, which is when the indicator goes (034 R35).
     public var interruptions: [ElementCallInterruption] = []
@@ -122,6 +127,18 @@ public nonisolated struct ElementCallScreenViewState: Equatable, Sendable {
     /// alike, since only the tile list says whether a call is one-to-one.
     static func showingHands(_ tiles: [ElementCallTile]) -> [ElementCallTile] {
         ElementCallSmallCallLayout.isFullBleed(tiles) ? tiles.map { $0.withHandHidden() } : tiles
+    }
+    
+    /// Mic, camera and hang-up are never disabled by an interruption: a mute made during one holds
+    /// and applies when media resumes (034 R15).
+    public var isHandControlEnabled: Bool {
+        isSignallingReachable
+    }
+    
+    /// Starting a share needs our media server; stopping one never does, so a share in progress can
+    /// always be ended.
+    public var isScreenShareControlEnabled: Bool {
+        isScreenSharing || !isOwnMediaReconnecting
     }
     
     /// From three people, ourselves included: alone or one-to-one there is nobody to queue behind

@@ -63,6 +63,7 @@ struct ElementCallControlsView: View {
             if context.viewState.isScreenSharingEnabled {
                 controlButton(icon: .shareScreen,
                               isActive: !context.viewState.isScreenSharing,
+                              isEnabled: context.viewState.isScreenShareControlEnabled,
                               label: context.viewState.isScreenSharing ? "Stop sharing screen" : "Share screen") {
                     context.send(viewAction: .toggleScreenShare)
                 }
@@ -129,10 +130,11 @@ struct ElementCallControlsView: View {
         return Button {
             context.send(viewAction: .toggleRaisedHand)
         } label: {
-            controlCircle(icon: .raisedHand, isActive: !state.isHandRaised)
+            controlCircle(icon: .raisedHand, isActive: !state.isHandRaised, isEnabled: state.isHandControlEnabled)
         }
+        .disabled(!state.isHandControlEnabled)
         .accessibilityLabel(state.isHandRaised ? "Lower hand" : "Raise hand")
-        .accessibilityValue(state.isHandRaised ? "Raised" : "")
+        .accessibilityValue(state.isHandControlEnabled ? state.isHandRaised ? "Raised" : "" : style.strings.unavailable)
         // The same identifier `controlButton` would derive, set here because this one is built by hand.
         .accessibilityIdentifier(ElementCallAccessibilityIdentifiers.control(for: .raisedHand))
     }
@@ -183,22 +185,30 @@ struct ElementCallControlsView: View {
     
     /// `isActive` is the resting state, a dark circle; the inverse is the highlighted white circle
     /// the design uses for mic off, camera off, sharing and any audio output but the earpiece.
+    /// Disabled only by an interruption (034 R15), and said so to a screen reader rather than
+    /// left to a dimmed glyph.
     private func controlButton(icon: ElementCallIcon,
                                isActive: Bool,
+                               isEnabled: Bool = true,
                                label: String,
                                action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            controlCircle(icon: icon, isActive: isActive)
+            controlCircle(icon: icon, isActive: isActive, isEnabled: isEnabled)
         }
+        .disabled(!isEnabled)
         .accessibilityLabel(label)
+        .accessibilityValue(isEnabled ? "" : style.strings.unavailable)
         .accessibilityIdentifier(ElementCallAccessibilityIdentifiers.control(for: icon))
     }
     
-    private func controlCircle(icon: ElementCallIcon, isActive: Bool) -> some View {
-        style.icons.icon(icon)
-            .foregroundStyle(isActive ? style.theme.iconPrimary : style.theme.iconOnSolidPrimary)
+    /// A disabled control is drawn resting, with a faint glyph: never in its highlighted state,
+    /// which would read as on.
+    private func controlCircle(icon: ElementCallIcon, isActive: Bool, isEnabled: Bool = true) -> some View {
+        let isHighlighted = !isActive && isEnabled
+        return style.icons.icon(icon)
+            .foregroundStyle(!isEnabled ? style.theme.iconQuaternary : isHighlighted ? style.theme.iconOnSolidPrimary : style.theme.iconPrimary)
             .frame(width: 56, height: 56)
-            .background(isActive ? style.theme.bgSubtleSecondary : style.theme.bgActionPrimaryRest, in: Circle())
+            .background(isHighlighted ? style.theme.bgActionPrimaryRest : style.theme.bgSubtleSecondary, in: Circle())
     }
 }
 
@@ -235,6 +245,15 @@ struct ElementCallControlsView_Previews: PreviewProvider, TestablePreview {
             .environment(\.colorScheme, .dark)
     }
     
+    /// Our server and our media server both away: hand and share disabled, the rest untouched.
+    static var interruptedState: ElementCallScreenViewState {
+        var state = ElementCallPreviewFixtures.connected(tiles: ElementCallPreviewFixtures.group)
+        state.isScreenSharingEnabled = true
+        state.isSignallingReachable = false
+        state.isOwnMediaReconnecting = true
+        return state
+    }
+    
     static func handState(isRaised: Bool) -> ElementCallScreenViewState {
         var state = ElementCallPreviewFixtures.connected(tiles: ElementCallPreviewFixtures.group)
         state.isHandRaised = isRaised
@@ -255,5 +274,7 @@ struct ElementCallControlsView_Previews: PreviewProvider, TestablePreview {
             .previewDisplayName("Headset")
         controls(handState(isRaised: true))
             .previewDisplayName("Hand raised")
+        controls(interruptedState)
+            .previewDisplayName("Interrupted")
     }
 }

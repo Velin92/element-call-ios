@@ -121,25 +121,18 @@ struct ElementCallControlsView: View {
         }
     }
     
-    /// Shows our hand as the others see it, and progress while a change is with the homeserver
-    /// rather than the tap's result (009 R5). Disabled meanwhile, so a second tap cannot send twice.
+    /// Shows our hand as the user asked for it, which is what our tile shows (009 R5, 034 C12). No
+    /// progress state: a request can wait out an outage, and a tap meanwhile is a reversal, not a
+    /// second send, so there is nothing to block and nothing to spin for.
     private var raisedHandButton: some View {
         let state = context.viewState
         return Button {
             context.send(viewAction: .toggleRaisedHand)
         } label: {
-            if state.isHandPending {
-                ProgressView()
-                    .tint(state.isHandRaised ? style.theme.iconOnSolidPrimary : style.theme.iconPrimary)
-                    .frame(width: 56, height: 56)
-                    .background(state.isHandRaised ? style.theme.bgActionPrimaryRest : style.theme.bgSubtleSecondary, in: Circle())
-            } else {
-                controlCircle(icon: .raisedHand, isActive: !state.isHandRaised)
-            }
+            controlCircle(icon: .raisedHand, isActive: !state.isHandRaised)
         }
-        .disabled(state.isHandPending)
         .accessibilityLabel(state.isHandRaised ? "Lower hand" : "Raise hand")
-        .accessibilityValue(state.isHandPending ? "Updating" : state.isHandRaised ? "Raised" : "")
+        .accessibilityValue(state.isHandRaised ? "Raised" : "")
         // The same identifier `controlButton` would derive, set here because this one is built by hand.
         .accessibilityIdentifier(ElementCallAccessibilityIdentifiers.control(for: .raisedHand))
     }
@@ -242,10 +235,9 @@ struct ElementCallControlsView_Previews: PreviewProvider, TestablePreview {
             .environment(\.colorScheme, .dark)
     }
     
-    static func handState(isRaised: Bool, isPending: Bool) -> ElementCallScreenViewState {
+    static func handState(isRaised: Bool) -> ElementCallScreenViewState {
         var state = ElementCallPreviewFixtures.connected(tiles: ElementCallPreviewFixtures.group)
         state.isHandRaised = isRaised
-        state.isHandPending = isPending
         return state
     }
     
@@ -261,11 +253,7 @@ struct ElementCallControlsView_Previews: PreviewProvider, TestablePreview {
         controls(ElementCallPreviewFixtures.connected(tiles: ElementCallPreviewFixtures.group,
                                                       audioOutputs: ElementCallPreviewFixtures.headsetAudioOutputs))
             .previewDisplayName("Headset")
-        controls(handState(isRaised: true, isPending: false))
+        controls(handState(isRaised: true))
             .previewDisplayName("Hand raised")
-        controls(handState(isRaised: false, isPending: true))
-            .previewDisplayName("Hand going up")
-        controls(handState(isRaised: true, isPending: true))
-            .previewDisplayName("Hand coming down")
     }
 }

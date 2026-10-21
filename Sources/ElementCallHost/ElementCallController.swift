@@ -386,24 +386,23 @@ public final class ElementCallController {
     
     // MARK: - Raised hand
     
-    /// While a raise or a lower is with the homeserver. The control shows progress and takes no
-    /// taps: not the new state, which nobody else can see yet (009 R5), and not the old one looking
-    /// tappable, which invites a second send.
-    public private(set) var isHandPending = false
-    
-    /// Read from our tile, which the core changes only once the homeserver has the annotation, so
-    /// the control shows what everyone else sees rather than the last tap. A refusal therefore
-    /// needs no undoing: the tile never moved (009 R22).
+    /// Read from our tile, which shows the hand the user asked for from the moment they ask: the
+    /// core moves it before its first send and keeps sending until the hand lands, through an
+    /// outage if need be, and puts it back where it last landed if the homeserver refuses (034 C12,
+    /// 009 R5 as sharpened by 034). So nothing here needs undoing either way.
     public var isHandRaised: Bool {
         call?.ownTile?.handRaisedAt != nil
     }
     
     /// A no-op before the join, which has no membership to put a hand on.
+    ///
+    /// Never gated on a request in flight, as it was while a request lasted one send: one can now
+    /// be suspended for as long as the homeserver is away, and a second tap is how the user takes
+    /// it back. The core resolves the first quietly and sends the reversal instead.
     public func setHandRaised(_ raised: Bool) {
-        guard let rtcCall, !isHandPending else { return }
-        isHandPending = true
+        guard let rtcCall else { return }
         Task {
-            defer { isHandPending = false }
+            // Throws only for a permanent refusal; the end of the call resolves a request quietly.
             do {
                 if raised {
                     try await rtcCall.raiseHand()

@@ -94,10 +94,9 @@ public nonisolated struct ElementCallScreenViewState: Equatable, Sendable {
     public var isTileStatsVisible = false
     public var isDeveloperModeEnabled = false
     public var isScreenSharingEnabled = false
-    /// Our hand as the other participants see it, from our own tile (009 R5).
+    /// Our hand as the user asked for it, from our own tile, which the core moves at once and
+    /// keeps there until it lands or is refused (009 R5, 034 C12).
     public var isHandRaised = false
-    /// A raise or a lower is with the homeserver; the control shows progress and takes no taps.
-    public var isHandPending = false
     /// Joined: there is a membership to put a hand on.
     public var isHandRaiseAvailable = false
     

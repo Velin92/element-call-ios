@@ -306,7 +306,6 @@ public final class ElementCallScreenViewModel {
         state.isCameraEnabled = controller.isCameraEnabled
         // The membership comes before media, so the hand is offered from the join on.
         state.isHandRaiseAvailable = controller.rtcCall != nil
-        state.isHandPending = controller.isHandPending
         state.isHandRaised = controller.isHandRaised
         
         if let message = controller.errorMessage {

@@ -84,9 +84,21 @@ public final class ElementCallController {
     /// The last failure worth telling the user about; the screen shows it once and clears it.
     public var errorMessage: String?
     
-    /// Whether our homeserver answers, followed from the start of a call until it ends (034 C4).
-    /// The only source while there is no media yet: the controls are live from the join.
-    public private(set) var signalling: MatrixRTCSignallingHealth = .reachable
+    /// Whether our homeserver answers, from the start of a call until it ends (034 C4).
+    ///
+    /// Unreachable if either source says so: the client's, which is the only one while there is
+    /// no media yet and the controls are already live, or the copy in the media session's
+    /// interruptions record. In a real call the two agree a hop apart, and taking the worse keeps
+    /// that hop from re-enabling the hand. A scripted call has no client, so its record is all it
+    /// has.
+    public var signalling: MatrixRTCSignallingHealth {
+        if !followedSignalling.isReachable {
+            return followedSignalling
+        }
+        return call?.interruptions.signalling ?? .reachable
+    }
+    
+    private var followedSignalling: MatrixRTCSignallingHealth = .reachable
     
     /// Our membership in the room's call, from the join until the call ends.
     public private(set) var rtcCall: MatrixRTCCall?
@@ -652,9 +664,9 @@ public final class ElementCallController {
         signallingTask = Task { [weak self] in
             for await health in updates {
                 guard let self, !Task.isCancelled else { return }
-                if health != signalling {
+                if health != followedSignalling {
                     log(.info, "signalling \(health)")
-                    signalling = health
+                    followedSignalling = health
                 }
             }
         }
@@ -788,7 +800,7 @@ public final class ElementCallController {
         statusTask = nil
         signallingTask?.cancel()
         signallingTask = nil
-        signalling = .reachable
+        followedSignalling = .reachable
         pictureInPicture.unbind()
         
         let endedCall = rtcCall

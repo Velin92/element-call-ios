@@ -61,6 +61,31 @@ struct ScriptedSessionTests {
         await player.call.disconnect()
     }
     
+    /// The tiles follow a pushed record, as the core's do, so a fixture scripts one and gets both.
+    @Test
+    func theTilesFollowAPushedRecord() async throws {
+        let player = try MatrixRTCScenarioPlayer(scenario: MatrixRTCScenario.parse("0s B C", name: "t"))
+        await player.start()
+        _ = await player.step()
+        
+        player.session.push(interruptions: MatrixRTCInterruptions(ownMedia: .reconnecting,
+                                                                  membersReconnecting: [a("B").memberID],
+                                                                  undecryptable: [a("C").memberID]))
+        for _ in 0..<1000 where player.call.tiles.detail[a("B")]?.connection != .reconnecting {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(player.call.tiles.detail[a("B")]?.connection == .reconnecting)
+        #expect(player.call.tiles.detail[a("C")]?.isDecryptable == false)
+        #expect(player.call.ownTile?.connection == .reconnecting)
+        
+        player.session.push(interruptions: .none)
+        for _ in 0..<1000 where player.call.tiles.detail[a("B")]?.connection != .connected {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(player.call.tiles.detail[a("C")]?.isDecryptable == true)
+        await player.call.disconnect()
+    }
+    
     /// Every join rotates the keys, so a newcomer is held as arriving for the grace and then not,
     /// on the call's own clock (034 C6).
     @Test

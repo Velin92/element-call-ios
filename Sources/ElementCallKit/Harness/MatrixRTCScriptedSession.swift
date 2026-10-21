@@ -60,6 +60,7 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
                                                              hasVideo: me.hasVideo,
                                                              isMicrophoneMuted: me.isMicrophoneMuted,
                                                              handPosition: me.hasHandRaised ? remoteHands + 1 : nil)
+            localState.tile.connection = interruptions.ownMedia
             guard let pending = pendingLocalState else {
                 hasUnreadLocalState = true
                 return nil
@@ -92,7 +93,9 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
         let (pendingRoster, pendingLocalState) = state.withLock { state -> (CheckedContinuation<FfiTileRoster?, Never>?, CheckedContinuation<FfiLocalState?, Never>?) in
             let only = state.detailOnly
             state.roster = FfiTileRoster(order: tokens.map(Self.reference),
-                                         detail: tokens.filter { only?.contains($0.tileID) ?? true }.map { Self.detail($0, handPosition: positions[$0.tileID]) })
+                                         detail: tokens.filter { only?.contains($0.tileID) ?? true }.map {
+                                             Self.detail($0, handPosition: positions[$0.tileID]).following(state.interruptions)
+                                         })
             let renumbersOurs = state.me.hasHandRaised && state.remoteHands != hands.count
             state.remoteHands = hands.count
             let pendingLocalState = renumbersOurs ? state.publishLocalState(memberID: localMemberID) : nil
@@ -117,18 +120,42 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
     }
     
     /// The next interruptions record the call sees: an outage, as the core would report it.
+    ///
+    /// The tiles follow it, as the core's do: a member it lists as reconnecting is so on their
+    /// tile, and our own tile carries our media server. They are published first, so a reader
+    /// woken by the record finds tiles that already agree with it (034 C5).
     public func push(interruptions: MatrixRTCInterruptions) {
         let record = interruptions.ffi
-        let pending = state.withLock { state -> CheckedContinuation<FfiInterruptions?, Never>? in
+        let pending = state.withLock { state in
             state.interruptions = record
-            guard let pending = state.pendingInterruptions else {
-                state.hasUnreadInterruptions = true
-                return nil
+            state.roster.detail = state.roster.detail.map { $0.following(record) }
+            state.localState.tile.connection = record.ownMedia
+            var pendingRoster: CheckedContinuation<FfiTileRoster?, Never>?
+            if let pending = state.pendingRoster {
+                state.pendingRoster = nil
+                pendingRoster = pending
+            } else {
+                state.hasUnreadRoster = true
             }
-            state.pendingInterruptions = nil
-            return pending
+            var pendingLocalState: CheckedContinuation<FfiLocalState?, Never>?
+            if let pending = state.pendingLocalState {
+                state.pendingLocalState = nil
+                pendingLocalState = pending
+            } else {
+                state.hasUnreadLocalState = true
+            }
+            var pendingInterruptions: CheckedContinuation<FfiInterruptions?, Never>?
+            if let pending = state.pendingInterruptions {
+                state.pendingInterruptions = nil
+                pendingInterruptions = pending
+            } else {
+                state.hasUnreadInterruptions = true
+            }
+            return (pendingRoster, pendingLocalState, pendingInterruptions, state.roster, state.localState)
         }
-        pending?.resume(returning: record)
+        pending.0?.resume(returning: pending.3)
+        pending.1?.resume(returning: pending.4)
+        pending.2?.resume(returning: record)
     }
     
     /// Narrows what the next rosters carry detail for. Nil widens back to everything.
@@ -428,5 +455,21 @@ public final class MatrixRTCScenarioPlayer {
         while !condition(), ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(5))
         }
+    }
+}
+
+private nonisolated extension FfiCallTile {
+    /// This tile as the core would draw it under `record`.
+    func following(_ record: FfiInterruptions) -> FfiCallTile {
+        var tile = self
+        tile.connection = if record.membersReconnecting.contains(memberId) {
+            .reconnecting
+        } else if record.membersUnreachable.contains(memberId) {
+            .unreachable
+        } else {
+            .connected
+        }
+        tile.decryptable = !record.undecryptable.contains(memberId)
+        return tile
     }
 }

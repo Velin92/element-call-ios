@@ -51,6 +51,14 @@ enum ElementCallExampleFixture: String, CaseIterable {
     case ringingVoicePickup = "ringing_voice_pickup"
     case ringingDeclined = "ringing_declined"
     case ringingUnanswered = "ringing_unanswered"
+    // The core's own fixture keys for the same outages (034 C16), so one key names one outage in
+    // the core's tests and on both phones.
+    case outageHomeserver30s = "outage.homeserver.30s"
+    case outageHomeserverLapse = "outage.homeserver.lapse"
+    case outageOwnSFURecovers40s = "outage.own_sfu.recovers_40s"
+    case outageOwnSFUBudget = "outage.own_sfu.budget"
+    case outagePeerSFU1m = "outage.peer_sfu.1m"
+    case outageKeyUndeliveredThenDelivered = "outage.key.undelivered_then_delivered"
     
     /// `-fixture <key>` opens a fixture and `-scenario <name>` a scenario file, mirroring Android's
     /// `--es fixture` and `--es scenario` so one recipe reads the same on both.
@@ -63,12 +71,15 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case connected = "Connected"
         case connecting = "Connecting"
         case ringing = "Ringing"
+        case outages = "Outages"
     }
     
     var category: Category {
         switch self {
         case .joining, .connectingMedia, .failed, .ended: .connecting
         case .ringingPickup, .ringingVoicePickup, .ringingDeclined, .ringingUnanswered: .ringing
+        case .outageHomeserver30s, .outageHomeserverLapse, .outageOwnSFURecovers40s, .outageOwnSFUBudget, .outagePeerSFU1m,
+             .outageKeyUndeliveredThenDelivered: .outages
         default: .connected
         }
     }
@@ -104,6 +115,12 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case .connectingMedia: "Connecting media"
         case .failed: "Failed"
         case .ended: "Ended"
+        case .outageHomeserver30s: "Homeserver away for 30 s"
+        case .outageHomeserverLapse: "Homeserver away, membership lapsed"
+        case .outageOwnSFURecovers40s: "Our media server back after 40 s"
+        case .outageOwnSFUBudget: "Our media server never back"
+        case .outagePeerSFU1m: "Carol and Bob's media server away for 1 min"
+        case .outageKeyUndeliveredThenDelivered: "Erin's key late by 10 s"
         }
     }
     
@@ -136,6 +153,12 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case .connectingMedia: "Joined, waiting on media."
         case .failed: "Why the call failed, until the user closes the screen."
         case .ended: "After hanging up, before the screen goes away."
+        case .outageHomeserver30s: "From 5 s: the server entry, the hand disabled, everyone still in the call."
+        case .outageHomeserverLapse: "From 15 s the others cannot see or hear us; back at 45 s, republished at 48 s."
+        case .outageOwnSFURecovers40s: "From 5 s: our tile's spinner and sharing disabled, until 45 s."
+        case .outageOwnSFUBudget: "From 5 s our media reconnects; at 65 s the call fails and says why."
+        case .outagePeerSFU1m: "From 5 s Carol and Bob are avatars with a spinner, until 65 s."
+        case .outageKeyUndeliveredThenDelivered: "From 5 s Erin cannot be decrypted, until 15 s."
         }
     }
     
@@ -155,6 +178,8 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case ringing(ElementCallExampleRinging)
         /// A direct call whose tiles change over time, played from an inline scenario.
         case played(scenario: String)
+        /// A group call on a scripted call, with the core's interruptions played over it.
+        case outage(ElementCallExampleOutage)
     }
     
     /// Built from the same fixtures the snapshots use, so a failure here and a failure there are
@@ -251,6 +276,18 @@ enum ElementCallExampleFixture: String, CaseIterable {
             return .ringing(ElementCallExampleRinging(isAudioCall: false, outcome: .declined))
         case .ringingUnanswered:
             return .ringing(ElementCallExampleRinging(isAudioCall: false, outcome: .unanswered))
+        case .outageHomeserver30s:
+            return .outage(.homeserver30s)
+        case .outageHomeserverLapse:
+            return .outage(.homeserverLapse)
+        case .outageOwnSFURecovers40s:
+            return .outage(.ownSFURecovers40s)
+        case .outageOwnSFUBudget:
+            return .outage(.ownSFUBudget)
+        case .outagePeerSFU1m:
+            return .outage(.peerSFU1m)
+        case .outageKeyUndeliveredThenDelivered:
+            return .outage(.keyUndeliveredThenDelivered)
         case .joining:
             return .connecting(.joining)
         case .connectingMedia:

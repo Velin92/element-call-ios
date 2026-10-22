@@ -942,6 +942,8 @@ public final class MatrixRTCMediaSession {
             playJoinLeaveSound(.leave, for: memberID, participantCount: participantCount)
         case .handRaised(let memberID, _):
             playRaisedHandSound(for: memberID)
+        case .streamStarted(let memberID, let kind):
+            reopenStream(of: memberID, kind: kind)
         default:
             break
         }
@@ -985,6 +987,27 @@ public final class MatrixRTCMediaSession {
         playbackSinks[memberID] = sink
         sink.start(stream: stream)
         MatrixRTCLog.info("Playing audio of \(memberID)")
+    }
+    
+    /// A stream that starts while we already read it is a new track under the same name: the core
+    /// reports a stream started only after it stopped, and a LiveKit full restart replaces every
+    /// track that way. What we hold reads the old track, which sends nothing again and whose
+    /// `next()` never returns, so neither the roster nor a tile would ever open the new one: after
+    /// a phone came back from 30 s offline, everyone stayed frozen on their last frame.
+    private func reopenStream(of memberID: String, kind: MatrixRTCStreamKind) {
+        switch kind {
+        case .microphone:
+            guard let sink = playbackSinks.removeValue(forKey: memberID) else { return }
+            MatrixRTCLog.info("Reopening the audio of \(memberID) on its new track")
+            sink.stop()
+            playAudio(of: memberID)
+        case .camera, .screenShare:
+            guard let source = videoSources[MatrixRTCStreamRef(memberID: memberID, kind: kind)] else { return }
+            MatrixRTCLog.info("Reopening the \(kind) of \(memberID) on its new track")
+            source.reopen()
+        case .screenShareAudio, .data:
+            break
+        }
     }
     
     private func stopPlayback(of memberID: String) {

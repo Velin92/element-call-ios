@@ -356,7 +356,7 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
                     handRaisedAtMs: handPosition.map { UInt64($0) },
                     handRaisedPosition: handPosition.map { UInt32($0) },
                     connection: .connected,
-                    decryptable: true)
+                    unableToDecrypt: nil)
     }
     
     fileprivate static func localState(memberID: String, hasVideo: Bool, isMicrophoneMuted: Bool, handPosition: Int? = nil) -> FfiLocalState {
@@ -371,7 +371,7 @@ public final nonisolated class MatrixRTCScriptedSession: MediaSessionProtocol, S
                                         handRaisedAtMs: handPosition.map { UInt64($0) },
                                         handRaisedPosition: handPosition.map { UInt32($0) },
                                         connection: .connected,
-                                        decryptable: true),
+                                        unableToDecrypt: nil),
                       isScreenSharing: false)
     }
 }
@@ -469,7 +469,8 @@ private nonisolated extension FfiCallTile {
         } else {
             .connected
         }
-        tile.decryptable = !record.undecryptable.contains(memberId)
+        // The record names members only; a missing key is what a scenario means by it.
+        tile.unableToDecrypt = record.unableToDecrypt.contains(memberId) ? .missingKey : nil
         return tile
     }
 }

@@ -95,13 +95,13 @@ struct ElementCallExampleOutage {
             causes.append("membership lapsed")
         }
         if record.ownMedia != .connected {
-            causes.append("our media reconnecting")
+            causes.append("our media \(record.ownMedia == .connecting ? "connecting" : "reconnecting")")
         }
         if !record.membersReconnecting.isEmpty {
             causes.append("\(names(record.membersReconnecting)) reconnecting")
         }
-        if !record.undecryptable.isEmpty {
-            causes.append("\(names(record.undecryptable)) undecryptable")
+        if !record.unableToDecrypt.isEmpty {
+            causes.append("\(names(record.unableToDecrypt)) unable to decrypt")
         }
         return causes.isEmpty ? "nothing interrupted" : causes.joined(separator: ", ")
     }
@@ -140,14 +140,14 @@ struct ElementCallExampleOutage {
     ])
     
     static let keyUndeliveredThenDelivered = ElementCallExampleOutage(timeline: [
-        (.seconds(5), .interruptions(.init(undecryptable: [memberID("Erin")]))),
-        (.seconds(15), .interruptions(.none))
+        (.seconds(5), .interruptions(.init(unableToDecrypt: [memberID("Erin")]))),
+        (.seconds(12), .interruptions(.none))
     ])
     
     /// The last step only keeps the clock moving past the moment her keys count as missing: the
     /// call's timers run on the scenario's clock, which stops with the timeline.
     static let keyMissing = ElementCallExampleOutage(timeline: [
-        (.seconds(5), .interruptions(.init(undecryptable: [memberID("Erin")]))),
-        (.seconds(60), .interruptions(.init(undecryptable: [memberID("Erin")])))
+        (.seconds(5), .interruptions(.init(unableToDecrypt: [memberID("Erin")]))),
+        (.seconds(60), .interruptions(.init(unableToDecrypt: [memberID("Erin")])))
     ])
 }

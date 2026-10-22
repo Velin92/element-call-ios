@@ -529,7 +529,8 @@ struct ElementCallTileView: View, Equatable {
 
 /// The name tag's indicator for media that is not reaching the screen (034 R23, R29, R33): read
 /// when focused, never announced. A spinner while it may yet come, and the key in critical red once
-/// a member's keys have stayed away, which says what is missing without guessing why (034 Q8).
+/// a member's keys have stayed away, which says what is missing without guessing why (034 Q8), or
+/// at once for media sent in clear, which will never come.
 /// Shared by the tile and the full-screen chrome.
 struct ElementCallMediaIndicator: View {
     let state: ElementCallTileMediaState
@@ -539,16 +540,24 @@ struct ElementCallMediaIndicator: View {
     var body: some View {
         switch state {
         case .keysMissing:
-            style.icons.icon(.keyOff, size: .xSmall, relativeTo: .bodySM)
-                .foregroundStyle(style.theme.iconCriticalPrimary)
-                .accessibilityLabel(style.strings.mediaKeysMissing)
+            keyOff.accessibilityLabel(style.strings.mediaKeysMissing)
+        case .notEncrypted:
+            keyOff.accessibilityLabel(style.strings.mediaNotEncrypted)
         case .undecryptable:
             ElementCallSpinner()
                 .accessibilityLabel(style.strings.mediaUndecryptable)
+        case .connecting:
+            ElementCallSpinner()
+                .accessibilityLabel(style.strings.mediaConnecting)
         case .live, .reconnecting:
             ElementCallSpinner()
                 .accessibilityLabel(style.strings.mediaReconnecting)
         }
+    }
+    
+    private var keyOff: some View {
+        style.icons.icon(.keyOff, size: .xSmall, relativeTo: .bodySM)
+            .foregroundStyle(style.theme.iconCriticalPrimary)
     }
 }
 

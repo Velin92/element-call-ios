@@ -160,10 +160,25 @@ public nonisolated struct MatrixRTCStreamState: Sendable, Hashable {
 /// On our own tile it is our own SFU. Never given up on for a remote member: a member who stays
 /// ``reconnecting`` for minutes is still being tried, and the call goes on around them.
 public nonisolated enum MatrixRTCConnectionState: Sendable, Hashable {
+    /// Our own SFU only, until it is first up: the start of a call, not an interruption (034 C11).
+    case connecting
     case connected
+    /// Lost after it was up.
     case reconnecting
     /// No transport can serve what the member advertises.
     case unreachable
+}
+
+/// Why a member's media does not decrypt (034 C6). The core holds ``missingKey`` and ``badKey`` back
+/// until frames have failed for its key grace without a break, so a key rotation never shows.
+public nonisolated enum MatrixRTCUnableToDecrypt: Sendable, Hashable {
+    /// Their key has not reached us.
+    case missingKey
+    /// We hold a key for their frames and it does not decrypt them.
+    case badKey
+    /// They declared their media unencrypted, in an encrypted call. The core refuses it, so there is
+    /// never a stream for it, and says so at once.
+    case notEncrypted
 }
 
 /// The transport's view of a member; differs legitimately from the membership projection.
@@ -173,7 +188,7 @@ public nonisolated struct MatrixRTCParticipant: Sendable, Hashable, Identifiable
     public let deviceID: String?
     public let isLocal: Bool
     public let connection: MatrixRTCConnectionState
-    public let isDecryptable: Bool
+    public let unableToDecrypt: MatrixRTCUnableToDecrypt?
     public let streams: [MatrixRTCStreamState]
     public let handRaisedAt: Date?
     
@@ -182,7 +197,7 @@ public nonisolated struct MatrixRTCParticipant: Sendable, Hashable, Identifiable
                 deviceID: String?,
                 isLocal: Bool,
                 connection: MatrixRTCConnectionState = .connected,
-                isDecryptable: Bool = true,
+                unableToDecrypt: MatrixRTCUnableToDecrypt? = nil,
                 streams: [MatrixRTCStreamState],
                 handRaisedAt: Date?) {
         self.memberID = memberID
@@ -190,7 +205,7 @@ public nonisolated struct MatrixRTCParticipant: Sendable, Hashable, Identifiable
         self.deviceID = deviceID
         self.isLocal = isLocal
         self.connection = connection
-        self.isDecryptable = isDecryptable
+        self.unableToDecrypt = unableToDecrypt
         self.streams = streams
         self.handRaisedAt = handRaisedAt
     }
@@ -243,9 +258,9 @@ public nonisolated struct MatrixRTCTile: Sendable, Hashable, Identifiable {
     /// release of subscriptions, so a renderer gated on ``hasVideo`` alone would hold the last frame
     /// of somebody who is no longer arriving.
     public let connection: MatrixRTCConnectionState
-    /// False from the first frame that fails to decrypt until frames decrypt again. Always true on
-    /// our own tile, which is local capture.
-    public let isDecryptable: Bool
+    /// Why this tile's media does not decrypt, once it has failed for the core's key grace; nil
+    /// while it decrypts. Always nil on our own tile, which is local capture.
+    public let unableToDecrypt: MatrixRTCUnableToDecrypt?
     
     public var memberID: String {
         id.memberID
@@ -270,7 +285,7 @@ public nonisolated struct MatrixRTCTile: Sendable, Hashable, Identifiable {
                 handRaisedAt: Date? = nil,
                 handRaisedPosition: Int? = nil,
                 connection: MatrixRTCConnectionState = .connected,
-                isDecryptable: Bool = true) {
+                unableToDecrypt: MatrixRTCUnableToDecrypt? = nil) {
         self.id = id
         self.userID = userID
         self.deviceID = deviceID
@@ -282,7 +297,7 @@ public nonisolated struct MatrixRTCTile: Sendable, Hashable, Identifiable {
         self.handRaisedAt = handRaisedAt
         self.handRaisedPosition = handRaisedPosition
         self.connection = connection
-        self.isDecryptable = isDecryptable
+        self.unableToDecrypt = unableToDecrypt
     }
 }
 
@@ -410,7 +425,8 @@ public nonisolated struct MatrixRTCInterruptions: Sendable, Hashable {
     public var ownMedia: MatrixRTCConnectionState
     public var membersReconnecting: [String]
     public var membersUnreachable: [String]
-    public var undecryptable: [String]
+    /// Members whose tiles have ``MatrixRTCTile/unableToDecrypt``, for the same reason.
+    public var unableToDecrypt: [String]
     public var unmappable: [String]
     
     public init(signalling: MatrixRTCSignallingHealth = .reachable,
@@ -418,14 +434,14 @@ public nonisolated struct MatrixRTCInterruptions: Sendable, Hashable {
                 ownMedia: MatrixRTCConnectionState = .connected,
                 membersReconnecting: [String] = [],
                 membersUnreachable: [String] = [],
-                undecryptable: [String] = [],
+                unableToDecrypt: [String] = [],
                 unmappable: [String] = []) {
         self.signalling = signalling
         self.isOwnMembershipLapsed = isOwnMembershipLapsed
         self.ownMedia = ownMedia
         self.membersReconnecting = membersReconnecting
         self.membersUnreachable = membersUnreachable
-        self.undecryptable = undecryptable
+        self.unableToDecrypt = unableToDecrypt
         self.unmappable = unmappable
     }
     

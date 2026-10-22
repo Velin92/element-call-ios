@@ -35,7 +35,7 @@ struct InterruptionEntriesTests {
                                             isOwnMembershipLapsed: true,
                                             ownMedia: .reconnecting,
                                             membersUnreachable: ["@bob:x:B"],
-                                            undecryptable: ["@carol:x:C"],
+                                            unableToDecrypt: ["@carol:x:C"],
                                             unmappable: ["PA_xyz"])
         
         #expect(ElementCallInterruption.entries(signalling: outage, record: record)
@@ -69,7 +69,7 @@ struct InterruptionEntriesTests {
     /// here, and none is a service of ours down: the member's tile says it, the indicator does not.
     @Test
     func aMissingKeyIsNoEntry() {
-        let record = MatrixRTCInterruptions(undecryptable: ["a"])
+        let record = MatrixRTCInterruptions(unableToDecrypt: ["a"])
         #expect(ElementCallInterruption.entries(signalling: .reachable, record: record).isEmpty)
     }
     
@@ -77,6 +77,13 @@ struct InterruptionEntriesTests {
     func ourOwnMediaUnreachableIsStillOurEntry() {
         let record = MatrixRTCInterruptions(ownMedia: .unreachable)
         #expect(ElementCallInterruption.entries(signalling: .reachable, record: record) == [.ownMedia])
+    }
+    
+    /// The start of the call, which the screen already says (C11).
+    @Test
+    func ourMediaFirstConnectingIsNoEntry() {
+        let record = MatrixRTCInterruptions(ownMedia: .connecting)
+        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record).isEmpty)
     }
 }
 
@@ -109,19 +116,18 @@ struct InterruptedControlsTests {
 @Suite("Interrupted tiles")
 @MainActor
 struct InterruptedTileTests {
-    private func tiles(_ remote: MatrixRTCTile, own: MatrixRTCTile? = nil, withinKeyGrace: Set<String> = [], missingKeys: Set<String> = []) -> [ElementCallTile] {
+    private func tiles(_ remote: MatrixRTCTile, own: MatrixRTCTile? = nil, missingKeys: Set<String> = []) -> [ElementCallTile] {
         ElementCallScreenViewModel.tiles(roster: MatrixRTCTileRoster([remote]),
                                          own: own,
                                          profiles: [:],
                                          youLabel: "You",
                                          isLocalMicrophoneMuted: false,
                                          localHasVideo: true,
-                                         withinKeyGrace: withinKeyGrace,
                                          missingKeys: missingKeys)
     }
     
-    private func bob(connection: MatrixRTCConnectionState = .connected, isDecryptable: Bool = true) -> MatrixRTCTile {
-        MatrixRTCTile(id: MatrixRTCTileID(memberID: "@bob:x:B"), userID: "@bob:x", hasVideo: true, connection: connection, isDecryptable: isDecryptable)
+    private func bob(connection: MatrixRTCConnectionState = .connected, unableToDecrypt: MatrixRTCUnableToDecrypt? = nil) -> MatrixRTCTile {
+        MatrixRTCTile(id: MatrixRTCTileID(memberID: "@bob:x:B"), userID: "@bob:x", hasVideo: true, connection: connection, unableToDecrypt: unableToDecrypt)
     }
     
     @Test
@@ -129,28 +135,36 @@ struct InterruptedTileTests {
         #expect(tiles(bob()).first?.mediaState == .live)
         #expect(tiles(bob(connection: .reconnecting)).first?.mediaState == .reconnecting)
         #expect(tiles(bob(connection: .unreachable)).first?.mediaState == .reconnecting)
-        #expect(tiles(bob(isDecryptable: false)).first?.mediaState == .undecryptable)
+        #expect(tiles(bob(unableToDecrypt: .missingKey)).first?.mediaState == .undecryptable)
+        #expect(tiles(bob(unableToDecrypt: .badKey)).first?.mediaState == .undecryptable)
+        #expect(tiles(bob(unableToDecrypt: .notEncrypted)).first?.mediaState == .notEncrypted)
     }
     
     /// Nothing decrypts over a connection that is down, so the connection is the one to say.
     @Test
     func aLostConnectionWinsOverDecryption() {
-        #expect(tiles(bob(connection: .reconnecting, isDecryptable: false)).first?.mediaState == .reconnecting)
-    }
-    
-    /// Every join and leave rotates the keys, and for a moment frames come under a key we lack.
-    @Test
-    func aMemberWithinTheKeyGraceIsNotUndecryptableYet() {
-        #expect(tiles(bob(isDecryptable: false), withinKeyGrace: ["@bob:x:B"]).first?.mediaState == .live)
-        #expect(tiles(bob(connection: .reconnecting), withinKeyGrace: ["@bob:x:B"]).first?.mediaState == .reconnecting)
+        #expect(tiles(bob(connection: .reconnecting, unableToDecrypt: .missingKey)).first?.mediaState == .reconnecting)
     }
     
     /// Past the wait the tile says the keys are missing, and only while they still are.
     @Test
     func aMemberMissingKeysSaysSo() {
-        #expect(tiles(bob(isDecryptable: false), missingKeys: ["@bob:x:B"]).first?.mediaState == .keysMissing)
+        #expect(tiles(bob(unableToDecrypt: .missingKey), missingKeys: ["@bob:x:B"]).first?.mediaState == .keysMissing)
+        #expect(tiles(bob(unableToDecrypt: .badKey), missingKeys: ["@bob:x:B"]).first?.mediaState == .keysMissing)
         #expect(tiles(bob(), missingKeys: ["@bob:x:B"]).first?.mediaState == .live)
-        #expect(tiles(bob(connection: .reconnecting, isDecryptable: false), missingKeys: ["@bob:x:B"]).first?.mediaState == .reconnecting)
+        #expect(tiles(bob(connection: .reconnecting, unableToDecrypt: .missingKey), missingKeys: ["@bob:x:B"]).first?.mediaState == .reconnecting)
+    }
+    
+    /// Media sent in clear will never play, so there is nothing to wait for.
+    @Test
+    func mediaSentInClearSaysSoAtOnce() {
+        #expect(tiles(bob(unableToDecrypt: .notEncrypted), missingKeys: ["@bob:x:B"]).first?.mediaState == .notEncrypted)
+    }
+    
+    @Test
+    func ourOwnTileConnectingIsNotReconnecting() {
+        let own = MatrixRTCTile(id: MatrixRTCTileID(memberID: "@me:x:M"), userID: "@me:x", isLocal: true, hasVideo: true, connection: .connecting)
+        #expect(tiles(bob(), own: own).first?.mediaState == .connecting)
     }
     
     @Test

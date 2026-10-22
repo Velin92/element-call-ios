@@ -159,12 +159,15 @@ public nonisolated struct ElementCallStrings: Sendable {
     public var close: String
     /// What a screen reader says for a control an interruption has disabled (034 R15).
     public var unavailable: String
-    /// What a screen reader says for a tile's loading indicator: the connection carrying the
-    /// member's media is being re-established, or their media cannot be decrypted (034 R40); and
-    /// for the icon that replaces it once their keys have stayed away (034 Q8).
+    /// What a screen reader says for a tile's loading indicator: our own media server is not up
+    /// yet, the connection carrying the member's media is being re-established, or their media
+    /// cannot be decrypted (034 R40); and for the icon that replaces it once their keys have stayed
+    /// away (034 Q8), or when they sent their media unencrypted.
+    public var mediaConnecting: String
     public var mediaReconnecting: String
     public var mediaUndecryptable: String
     public var mediaKeysMissing: String
+    public var mediaNotEncrypted: String
     /// The service interruptions indicator, and what a screen reader says when it goes (034 R35,
     /// R40). Short: it sits over the stage.
     public var interruptions: String
@@ -196,9 +199,11 @@ public nonisolated struct ElementCallStrings: Sendable {
                 joinRefused: String = "Your server refused to let you join.",
                 close: String = "Close",
                 unavailable: String = "Unavailable",
+                mediaConnecting: String = "Connecting",
                 mediaReconnecting: String = "Reconnecting",
                 mediaUndecryptable: String = "Waiting for encryption keys",
                 mediaKeysMissing: String = "Encryption keys missing",
+                mediaNotEncrypted: String = "Not encrypted",
                 interruptions: String = "Service interruptions",
                 interruptionsResolved: String = "Connection restored",
                 ownServerUnreachable: String = "Your server is unreachable. Some services are temporarily unavailable.",
@@ -226,9 +231,11 @@ public nonisolated struct ElementCallStrings: Sendable {
         self.joinRefused = joinRefused
         self.close = close
         self.unavailable = unavailable
+        self.mediaConnecting = mediaConnecting
         self.mediaReconnecting = mediaReconnecting
         self.mediaUndecryptable = mediaUndecryptable
         self.mediaKeysMissing = mediaKeysMissing
+        self.mediaNotEncrypted = mediaNotEncrypted
         self.interruptions = interruptions
         self.interruptionsResolved = interruptionsResolved
         self.ownServerUnreachable = ownServerUnreachable

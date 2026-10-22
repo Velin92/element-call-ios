@@ -97,7 +97,7 @@ final class FakeMediaSession: MediaSessionProtocol, @unchecked Sendable {
                          ownMedia: .connected,
                          membersReconnecting: [],
                          membersUnreachable: [],
-                         undecryptable: [],
+                         unableToDecrypt: [],
                          unmappable: [])
     }
     

@@ -108,9 +108,6 @@ public final class ElementCallController {
     /// comes up at every one is soon ignored, and a screen reader announces each coming and going
     /// (R40). Once up the list follows the causes without a wait, and the tiles never wait for it:
     /// what a tile shows is about that tile.
-    ///
-    /// This also covers our first connection to our media server, which the core reports as a
-    /// reconnection (C11) and which used to put the indicator up at the start of every call.
     public static let interruptionHold: Duration = .milliseconds(2500)
     
     /// What the hold is timed on; a test's manual clock.

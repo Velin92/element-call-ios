@@ -40,7 +40,8 @@ public nonisolated enum ElementCallInterruption: Hashable, Sendable {
         if !signalling.isReachable || record.isOwnMembershipLapsed {
             entries.append(.ownServer(isMembershipLapsed: record.isOwnMembershipLapsed))
         }
-        if record.ownMedia != .connected {
+        // Connecting is the start of the call, which the screen already says (C11).
+        if record.ownMedia == .reconnecting || record.ownMedia == .unreachable {
             entries.append(.ownMedia)
         }
         if !record.membersReconnecting.isEmpty || !record.membersUnreachable.isEmpty {

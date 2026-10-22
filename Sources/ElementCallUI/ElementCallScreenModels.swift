@@ -63,6 +63,8 @@ public nonisolated struct ElementCallTile: Identifiable, Equatable, Sendable {
 /// Why a tile's media is not reaching the screen, if it is not.
 public nonisolated enum ElementCallTileMediaState: Equatable, Sendable {
     case live
+    /// Our own tile only, until our media server is first up.
+    case connecting
     /// The connection carrying it is being re-established, or nothing can reach it. On our own
     /// tile, our own media server (034 R23).
     case reconnecting
@@ -71,6 +73,8 @@ public nonisolated enum ElementCallTileMediaState: Equatable, Sendable {
     /// It has not been decryptable for long enough that the wait is not the moment around a key
     /// rotation: see ``MatrixRTCMediaSession/keysMissingAfter``.
     case keysMissing
+    /// Its sender declared it unencrypted in an encrypted call, and the core refused it.
+    case notEncrypted
 }
 
 /// A message the screen shows once and then forgets. Replaces the host's alert type so the package

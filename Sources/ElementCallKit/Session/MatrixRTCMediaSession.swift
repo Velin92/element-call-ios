@@ -33,35 +33,18 @@ public final class MatrixRTCMediaSession {
     /// What is interrupting the call, cause by cause. Published after the roster and local state of
     /// the same change, so tiles read when this moves already agree with it (034 C5).
     public private(set) var interruptions: MatrixRTCInterruptions = .none
-    /// Members undecryptable for less than ``keyGrace`` without a break.
-    public private(set) var membersWithinKeyGrace: Set<String> = []
-    /// Members undecryptable for longer than ``keyGrace`` and ``keysMissingAfter`` together,
-    /// without a break.
+    /// Members the core has reported unable to decrypt for longer than ``keysMissingAfter``, without
+    /// a break.
     public private(set) var membersMissingKeys: Set<String> = []
-    /// A member's current spell of being undecryptable: the end of its grace, and the moment its
-    /// keys count as missing.
-    @ObservationIgnored private var keySpells: [String: [Task<Void, Never>]] = [:]
-    
-    /// How long a member may be undecryptable before their tile shows it. Every join
-    /// and every leave rotates the keys, and for a moment around each rotation frames arrive under
-    /// a key we do not hold yet: a newcomer's until theirs reaches us, and everyone's when they move
-    /// to a new one before it does (034 C6). That happens on every change of the roster and is not
-    /// a fault; past this, it is one.
-    ///
-    /// Counted from the start of each spell rather than from a member's arrival, which is what it
-    /// was first: on a real call the blips came from members already present, at every join and
-    /// leave, and a newcomer's media can come seconds after their membership. Short, because it is
-    /// for the tiles: an interrupted tile trades its picture for the avatar, and every tile doing
-    /// that at once for each rotation is what it prevents. The rotations seen on a real call lasted
-    /// under a second. The indicator never counts a missing key at all. On the call's clock so a
-    /// scenario can step past it.
-    public static let keyGrace: Duration = .milliseconds(1500)
+    /// When each member's current spell of being unable to decrypt reaches ``keysMissingAfter``.
+    @ObservationIgnored private var keySpells: [String: Task<Void, Never>] = [:]
     
     /// How long a tile shows it is waiting for a member's key before saying the key is missing.
-    /// Counted from the end of ``keyGrace``, so the spinner always has this long. Nothing here can
-    /// tell why a key does not come — a slow send, a session that is wedged, a device we do not
-    /// trust, federation lag — so past this a tile says only that it is missing, for that one member
-    /// (feature-hq 034 Q8).
+    /// Counted from the core's report, which already waited out a key rotation (its key grace, C6),
+    /// so the spinner always has this long. Nothing here can tell why a key does not come — a slow
+    /// send, a session that is wedged, a device we do not trust, federation lag — so past this a tile
+    /// says only that it is missing, for that one member (feature-hq 034 Q8). On the call's clock so
+    /// a scenario can step past it.
     public static let keysMissingAfter: Duration = .seconds(10)
     
     /// Our own tile — and the reason this is not simply `localState?.tile`.
@@ -803,7 +786,7 @@ public final class MatrixRTCMediaSession {
         pendingReleases.values.forEach { $0.cancel() }
         pendingReleases.removeAll()
         tasks.forEach { $0.cancel() }
-        keySpells.values.joined().forEach { $0.cancel() }
+        keySpells.values.forEach { $0.cancel() }
         tasks.removeAll()
         audioLevelFlush?.cancel()
         audioLevelFlush = nil
@@ -876,26 +859,17 @@ public final class MatrixRTCMediaSession {
     /// From both the tiles and the record: a change reaches the tiles first (C5), and a spell has to
     /// have begun by then or the tile draws its spinner for the moment in between.
     private func reconcileKeySpells() {
-        let undecryptable = Set(interruptions.undecryptable)
-            .union(tiles.detail.values.filter { !$0.isDecryptable }.map(\.memberID))
-        for memberID in Set(keySpells.keys).subtracting(undecryptable) {
-            keySpells.removeValue(forKey: memberID)?.forEach { $0.cancel() }
-            membersWithinKeyGrace.remove(memberID)
+        let unableToDecrypt = Set(interruptions.unableToDecrypt)
+            .union(tiles.detail.values.filter { $0.unableToDecrypt != nil }.map(\.memberID))
+        for memberID in Set(keySpells.keys).subtracting(unableToDecrypt) {
+            keySpells.removeValue(forKey: memberID)?.cancel()
             membersMissingKeys.remove(memberID)
         }
-        for memberID in undecryptable where keySpells[memberID] == nil {
-            membersWithinKeyGrace.insert(memberID)
-            // Kept once they have fired, so a spell that outlasts the grace is not granted a
-            // second one. Both from now, rather than the second from the first, so a clock moved
-            // past both at once fires both.
-            keySpells[memberID] = [
-                clock.schedule(after: Self.keyGrace) { [weak self] in
-                    self?.membersWithinKeyGrace.remove(memberID)
-                },
-                clock.schedule(after: Self.keyGrace + Self.keysMissingAfter) { [weak self] in
-                    self?.membersMissingKeys.insert(memberID)
-                }
-            ]
+        // Kept once it has fired, so a spell that outlasts the wait is not granted a second one.
+        for memberID in unableToDecrypt where keySpells[memberID] == nil {
+            keySpells[memberID] = clock.schedule(after: Self.keysMissingAfter) { [weak self] in
+                self?.membersMissingKeys.insert(memberID)
+            }
         }
     }
     

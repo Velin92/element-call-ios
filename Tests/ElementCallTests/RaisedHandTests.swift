@@ -166,7 +166,7 @@ struct RaisedHandControlTests {
                               handRaisedAtMs: 5,
                               handRaisedPosition: 3,
                               connection: .connected,
-                              decryptable: true)
+                              unableToDecrypt: nil)
         #expect(MatrixRTCTile(ffi, localMemberID: "me").handRaisedPosition == 3)
     }
     

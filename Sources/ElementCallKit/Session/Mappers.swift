@@ -142,7 +142,7 @@ nonisolated extension MatrixRTCInterruptions {
                   ownMedia: .init(record.ownMedia),
                   membersReconnecting: record.membersReconnecting,
                   membersUnreachable: record.membersUnreachable,
-                  undecryptable: record.undecryptable,
+                  unableToDecrypt: record.unableToDecrypt,
                   unmappable: record.unmappable)
     }
     
@@ -152,7 +152,7 @@ nonisolated extension MatrixRTCInterruptions {
                          ownMedia: ownMedia.ffi,
                          membersReconnecting: membersReconnecting,
                          membersUnreachable: membersUnreachable,
-                         undecryptable: undecryptable,
+                         unableToDecrypt: unableToDecrypt,
                          unmappable: unmappable)
     }
 }
@@ -160,6 +160,7 @@ nonisolated extension MatrixRTCInterruptions {
 nonisolated extension MatrixRTCConnectionState {
     init(_ state: FfiConnectionState) {
         switch state {
+        case .connecting: self = .connecting
         case .connected: self = .connected
         case .reconnecting: self = .reconnecting
         case .unreachable: self = .unreachable
@@ -168,9 +169,20 @@ nonisolated extension MatrixRTCConnectionState {
     
     var ffi: FfiConnectionState {
         switch self {
+        case .connecting: .connecting
         case .connected: .connected
         case .reconnecting: .reconnecting
         case .unreachable: .unreachable
+        }
+    }
+}
+
+nonisolated extension MatrixRTCUnableToDecrypt {
+    init(_ reason: FfiUnableToDecrypt) {
+        switch reason {
+        case .missingKey: self = .missingKey
+        case .badKey: self = .badKey
+        case .notEncrypted: self = .notEncrypted
         }
     }
 }
@@ -197,7 +209,7 @@ nonisolated extension MatrixRTCParticipant {
                   deviceID: participant.deviceId,
                   isLocal: participant.isLocal,
                   connection: .init(participant.connection),
-                  isDecryptable: participant.decryptable,
+                  unableToDecrypt: participant.unableToDecrypt.map(MatrixRTCUnableToDecrypt.init),
                   streams: participant.streams.map { .init(kind: .init($0.kind), isMuted: $0.muted) },
                   handRaisedAt: participant.handRaisedAtMs.map(Date.init(milliseconds:)))
     }
@@ -241,7 +253,7 @@ nonisolated extension MatrixRTCTile {
                   handRaisedAt: tile.handRaisedAtMs.map(Date.init(milliseconds:)),
                   handRaisedPosition: tile.handRaisedPosition.map(Int.init),
                   connection: .init(tile.connection),
-                  isDecryptable: tile.decryptable)
+                  unableToDecrypt: tile.unableToDecrypt.map(MatrixRTCUnableToDecrypt.init))
     }
 }
 

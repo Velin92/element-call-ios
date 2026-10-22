@@ -81,9 +81,11 @@ struct ElementCallView: View {
                             ElementCallFullscreenHandBadge(position: position)
                                 .zIndex(2)
                         }
-                        // Outside the chrome as well, like the hand: the indicator stays while
-                        // the chrome is hidden (034 R35). Level with the exit button.
-                        if !context.viewState.interruptions.isEmpty {
+                        // With the chrome, for now, though R35 has it stay while the chrome is
+                        // hidden: over a tile it hides the picture. Provisional until design
+                        // decides; the announcement still goes either way. Level with the exit
+                        // button.
+                        if !context.viewState.interruptions.isEmpty, context.isFullscreenChromeVisible {
                             ElementCallInterruptionsIndicator(interruptions: context.viewState.interruptions)
                                 .padding(.top, 7)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -377,16 +379,16 @@ struct ElementCallView: View {
                         .offset(y: isVisible ? 0 : -(topBarHeight + Self.topChromeSpacing))
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                // Not chrome either, and for the same reason as the banner it moves up rather than
-                // going: an outage is when a user looks for why the call went quiet (034 R35). Over
-                // the stage rather than above it, so it reserves no room and no tile moves when it
-                // comes. No transition, so it appears at once.
-                if isInterrupted {
+                // Over the stage rather than above it, so it reserves no room and no tile moves when
+                // it comes. Shown with the control bar, for now, though R35 has it stay while the
+                // chrome is hidden: it floats over the tiles and hides their pictures. Provisional
+                // until design decides; the announcement still goes either way. No transition of
+                // its own, so with the chrome up it appears at once.
+                if isInterrupted, isStageChromeVisible {
                     ElementCallInterruptionsIndicator(interruptions: context.viewState.interruptions)
                         // Inside the stage's top edge by what the tile insets its own pills by, so
                         // it sits level with the spotlight's people count, as the design has it.
                         .padding(.top, 8)
-                        .offset(y: isVisible ? 0 : -(topBarHeight + Self.topChromeSpacing))
                 }
             }
         }
@@ -642,8 +644,8 @@ struct ElementCallView_Previews: PreviewProvider, TestablePreview {
                                callProvider: ElementCallPreviewFixtures.noCall)
     }
     
-    /// Our server away and Dan's media server too: the indicator over the stage, which stays when
-    /// the chrome goes (034 R35), and Dan drawn as his avatar with the name tag's spinner.
+    /// Our server away and Dan's media server too: the indicator over the stage, which goes with the
+    /// chrome for now, and Dan drawn as his avatar with the name tag's spinner.
     static func interrupted(isChromeVisible: Bool) -> some View {
         let tiles = ElementCallPreviewFixtures.group.map { tile in
             tile.displayName == "Dan" ? ElementCallPreviewFixtures.tile("Dan", hasVideo: true, mediaState: .reconnecting) : tile

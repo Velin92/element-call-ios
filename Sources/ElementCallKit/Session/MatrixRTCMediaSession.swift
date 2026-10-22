@@ -37,7 +37,7 @@ public final class MatrixRTCMediaSession {
     public private(set) var membersWithinKeyGrace: Set<String> = []
     @ObservationIgnored private var keyGraceExpiries: [String: Task<Void, Never>] = [:]
     
-    /// How long a member may be undecryptable before a UI treats it as an interruption. Every join
+    /// How long a member may be undecryptable before their tile shows it. Every join
     /// and every leave rotates the keys, and for a moment around each rotation frames arrive under
     /// a key we do not hold yet: a newcomer's until theirs reaches us, and everyone's when they move
     /// to a new one before it does (034 C6). That happens on every change of the roster and is not
@@ -48,9 +48,8 @@ public final class MatrixRTCMediaSession {
     /// leave, and a newcomer's media can come seconds after their membership. Short, because it is
     /// for the tiles: an interrupted tile trades its picture for the avatar, and every tile doing
     /// that at once for each rotation is what it prevents. The rotations seen on a real call lasted
-    /// under a second. The indicator has a hold of its own on top
-    /// (`ElementCallController.interruptionHold`). Here rather than in a view so the tiles and the
-    /// list agree, and on the call's clock so a scenario can step past it.
+    /// under a second. The indicator never counts a missing key at all. On the call's clock so a
+    /// scenario can step past it.
     public static let keyGrace: Duration = .milliseconds(1500)
     
     /// Our own tile — and the reason this is not simply `localState?.tile`.

@@ -710,9 +710,7 @@ public final class ElementCallController {
     }
     
     private var currentInterruptions: [ElementCallInterruption] {
-        ElementCallInterruption.entries(signalling: signalling,
-                                        record: call?.interruptions,
-                                        withinKeyGrace: call?.membersWithinKeyGrace ?? [])
+        ElementCallInterruption.entries(signalling: signalling, record: call?.interruptions)
     }
     
     /// Publishes `entries` once something has been interrupted for the hold, and at once while

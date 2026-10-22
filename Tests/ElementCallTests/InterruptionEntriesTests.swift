@@ -58,21 +58,19 @@ struct InterruptionEntriesTests {
     }
     
     @Test
-    func anyMemberCauseIsTheOthersEntry() {
+    func eitherConnectionCauseIsTheOthersEntry() {
         for record in [MatrixRTCInterruptions(membersReconnecting: ["a"]),
-                       MatrixRTCInterruptions(membersUnreachable: ["a"]),
-                       MatrixRTCInterruptions(undecryptable: ["a"])] {
+                       MatrixRTCInterruptions(membersUnreachable: ["a"])] {
             #expect(ElementCallInterruption.entries(signalling: .reachable, record: record) == [.othersMedia])
         }
     }
     
-    /// A member undecryptable for a moment is the key rotation every join and leave makes, not an
-    /// interruption.
+    /// A late key, a wedged session, an untrusted device and federation lag all look alike from
+    /// here, and none is a service of ours down: the member's tile says it, the indicator does not.
     @Test
-    func aMemberWithinTheKeyGraceIsNotYetUndecryptable() {
-        let record = MatrixRTCInterruptions(undecryptable: ["brief", "long"])
-        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record, withinKeyGrace: ["brief"]) == [.othersMedia])
-        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record, withinKeyGrace: ["brief", "long"]).isEmpty)
+    func aMissingKeyIsNoEntry() {
+        let record = MatrixRTCInterruptions(undecryptable: ["a"])
+        #expect(ElementCallInterruption.entries(signalling: .reachable, record: record).isEmpty)
     }
     
     @Test

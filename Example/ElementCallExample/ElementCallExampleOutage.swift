@@ -143,4 +143,11 @@ struct ElementCallExampleOutage {
         (.seconds(5), .interruptions(.init(undecryptable: [memberID("Erin")]))),
         (.seconds(15), .interruptions(.none))
     ])
+    
+    /// The last step only keeps the clock moving past the moment her keys count as missing: the
+    /// call's timers run on the scenario's clock, which stops with the timeline.
+    static let keyMissing = ElementCallExampleOutage(timeline: [
+        (.seconds(5), .interruptions(.init(undecryptable: [memberID("Erin")]))),
+        (.seconds(60), .interruptions(.init(undecryptable: [memberID("Erin")])))
+    ])
 }

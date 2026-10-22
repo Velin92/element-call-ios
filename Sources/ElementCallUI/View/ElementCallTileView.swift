@@ -446,10 +446,8 @@ struct ElementCallTileView: View, Equatable {
         isSpotlight && tile.hasHandRaised && !tile.isScreenShare && !isNameHidden
     }
     
-    /// The name tag's loading indicator (034 R23, R29, R33): read when focused, never announced.
     private var mediaIndicator: some View {
-        ElementCallSpinner()
-            .accessibilityLabel(tile.mediaState == .undecryptable ? style.strings.mediaUndecryptable : style.strings.mediaReconnecting)
+        ElementCallMediaIndicator(state: tile.mediaState)
     }
     
     private var switchCameraButton: some View {
@@ -526,6 +524,31 @@ struct ElementCallTileView: View, Equatable {
             // Opaque, as the design has it: a translucent pill let the picture through, and over a
             // bright one the name tag's spinner disappeared.
             .background(style.theme.bgCanvasDefault, in: Capsule())
+    }
+}
+
+/// The name tag's indicator for media that is not reaching the screen (034 R23, R29, R33): read
+/// when focused, never announced. A spinner while it may yet come, and the key in critical red once
+/// a member's keys have stayed away, which says what is missing without guessing why (034 Q8).
+/// Shared by the tile and the full-screen chrome.
+struct ElementCallMediaIndicator: View {
+    let state: ElementCallTileMediaState
+    
+    @Environment(\.elementCallStyle) private var style
+    
+    var body: some View {
+        switch state {
+        case .keysMissing:
+            style.icons.icon(.keyOff, size: .xSmall, relativeTo: .bodySM)
+                .foregroundStyle(style.theme.iconCriticalPrimary)
+                .accessibilityLabel(style.strings.mediaKeysMissing)
+        case .undecryptable:
+            ElementCallSpinner()
+                .accessibilityLabel(style.strings.mediaUndecryptable)
+        case .live, .reconnecting:
+            ElementCallSpinner()
+                .accessibilityLabel(style.strings.mediaReconnecting)
+        }
     }
 }
 
@@ -723,6 +746,8 @@ struct ElementCallTileView_Previews: PreviewProvider, TestablePreview {
             .previewDisplayName("Reconnecting")
         tileView(Fixtures.tile("Dan", hasVideo: true, mediaState: .undecryptable), isSpotlight: true)
             .previewDisplayName("Spotlight undecryptable")
+        tileView(Fixtures.tile("Dan", hasVideo: true, mediaState: .keysMissing))
+            .previewDisplayName("Keys missing")
         tileView(Fixtures.tile("You", isLocal: true, hasVideo: true, mediaState: .reconnecting), appearance: .floating, isNameHidden: true)
             .previewDisplayName("Our own tile reconnecting")
         tileView(Fixtures.tile("Dan", hasVideo: true, mediaState: .reconnecting), appearance: .fullBleed, isNameHidden: true,

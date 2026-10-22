@@ -350,6 +350,7 @@ public final class ElementCallScreenViewModel {
                                  isLocalMicrophoneMuted: call.isMicrophoneMuted,
                                  localHasVideo: call.isCameraEnabled,
                                  withinKeyGrace: call.membersWithinKeyGrace,
+                                 missingKeys: call.membersMissingKeys,
                                  // The flag is read before any stats, so that with the overlay down
                                  // none of them enters this method's observation access list.
                                  // `receiveStats` is rewritten every second whether anyone is looking
@@ -386,11 +387,11 @@ public final class ElementCallScreenViewModel {
     
     /// What a tile's media is doing, by its two causes. A lost connection wins: it is why nothing
     /// decrypts either.
-    static func mediaState(connection: MatrixRTCConnectionState, isDecryptable: Bool) -> ElementCallTileMediaState {
+    static func mediaState(connection: MatrixRTCConnectionState, isDecryptable: Bool, isMissingKeys: Bool = false) -> ElementCallTileMediaState {
         if connection != .connected {
             .reconnecting
         } else if !isDecryptable {
-            .undecryptable
+            isMissingKeys ? .keysMissing : .undecryptable
         } else {
             .live
         }
@@ -435,6 +436,7 @@ public final class ElementCallScreenViewModel {
                       isLocalMicrophoneMuted: Bool,
                       localHasVideo: Bool,
                       withinKeyGrace: Set<String> = [],
+                      missingKeys: Set<String> = [],
                       stats: (MatrixRTCTile) -> String? = { _ in nil }) -> [ElementCallTile] {
         func tile(_ ref: MatrixRTCTileRef) -> ElementCallTile {
             if let detail = roster.detail[ref.id] {
@@ -469,7 +471,8 @@ public final class ElementCallScreenViewModel {
                                    isHero: tile.isLocal ? false : tile.isHero,
                                    stats: stats(tile),
                                    mediaState: mediaState(connection: tile.connection,
-                                                          isDecryptable: tile.isDecryptable || withinKeyGrace.contains(tile.memberID)))
+                                                          isDecryptable: tile.isDecryptable || withinKeyGrace.contains(tile.memberID),
+                                                          isMissingKeys: missingKeys.contains(tile.memberID)))
                 // Our own mute and camera come from the call, not the tile: see `withLocalMedia`.
                 .withLocalMedia(isMicrophoneMuted: isLocalMicrophoneMuted, hasVideo: localHasVideo)
         }

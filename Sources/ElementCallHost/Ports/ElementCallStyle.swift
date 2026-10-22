@@ -178,6 +178,8 @@ public nonisolated enum ElementCallIcon: Sendable, CaseIterable {
     case error
     /// A tile whose media is not arriving; turned by the view.
     case spinner
+    /// A tile whose member's keys have not come for long enough to say so (034 Q8).
+    case keyOff
 }
 
 public nonisolated enum ElementCallIconSize: Sendable {

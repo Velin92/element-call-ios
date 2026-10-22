@@ -111,6 +111,30 @@ struct ScriptedSessionTests {
         await player.call.disconnect()
     }
     
+    /// The keys count as missing once the spinner has had its wait, and stop the moment they come
+    /// (034 Q8).
+    @Test
+    func aSpellOutlastingTheWaitIsMissingKeys() async throws {
+        let player = try MatrixRTCScenarioPlayer(scenario: MatrixRTCScenario.parse("0s B C", name: "t"))
+        await player.start()
+        _ = await player.step()
+        let bob = a("B").memberID
+        
+        player.session.push(interruptions: MatrixRTCInterruptions(undecryptable: [bob]))
+        try await waitFor { player.call.interruptions.undecryptable == [bob] }
+        player.clock.advance(by: MatrixRTCMediaSession.keyGrace)
+        await player.settle()
+        #expect(player.call.membersMissingKeys.isEmpty)
+        player.clock.advance(by: MatrixRTCMediaSession.keysMissingAfter)
+        await player.settle()
+        #expect(player.call.membersMissingKeys == [bob])
+        
+        player.session.push(interruptions: .none)
+        try await waitFor { player.call.interruptions.undecryptable.isEmpty }
+        #expect(player.call.membersMissingKeys.isEmpty)
+        await player.call.disconnect()
+    }
+    
     @Test
     func ourOwnTileFollowsTheMeFrame() async throws {
         let scenario = try MatrixRTCScenario.parse("0s B\n1s me vm", name: "t")

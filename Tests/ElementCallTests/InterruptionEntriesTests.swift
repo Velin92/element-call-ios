@@ -109,14 +109,15 @@ struct InterruptedControlsTests {
 @Suite("Interrupted tiles")
 @MainActor
 struct InterruptedTileTests {
-    private func tiles(_ remote: MatrixRTCTile, own: MatrixRTCTile? = nil, withinKeyGrace: Set<String> = []) -> [ElementCallTile] {
+    private func tiles(_ remote: MatrixRTCTile, own: MatrixRTCTile? = nil, withinKeyGrace: Set<String> = [], missingKeys: Set<String> = []) -> [ElementCallTile] {
         ElementCallScreenViewModel.tiles(roster: MatrixRTCTileRoster([remote]),
                                          own: own,
                                          profiles: [:],
                                          youLabel: "You",
                                          isLocalMicrophoneMuted: false,
                                          localHasVideo: true,
-                                         withinKeyGrace: withinKeyGrace)
+                                         withinKeyGrace: withinKeyGrace,
+                                         missingKeys: missingKeys)
     }
     
     private func bob(connection: MatrixRTCConnectionState = .connected, isDecryptable: Bool = true) -> MatrixRTCTile {
@@ -142,6 +143,14 @@ struct InterruptedTileTests {
     func aMemberWithinTheKeyGraceIsNotUndecryptableYet() {
         #expect(tiles(bob(isDecryptable: false), withinKeyGrace: ["@bob:x:B"]).first?.mediaState == .live)
         #expect(tiles(bob(connection: .reconnecting), withinKeyGrace: ["@bob:x:B"]).first?.mediaState == .reconnecting)
+    }
+    
+    /// Past the wait the tile says the keys are missing, and only while they still are.
+    @Test
+    func aMemberMissingKeysSaysSo() {
+        #expect(tiles(bob(isDecryptable: false), missingKeys: ["@bob:x:B"]).first?.mediaState == .keysMissing)
+        #expect(tiles(bob(), missingKeys: ["@bob:x:B"]).first?.mediaState == .live)
+        #expect(tiles(bob(connection: .reconnecting, isDecryptable: false), missingKeys: ["@bob:x:B"]).first?.mediaState == .reconnecting)
     }
     
     @Test

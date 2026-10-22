@@ -89,6 +89,7 @@ public nonisolated enum ElementCallAccessibilityIdentifiers {
         case .chevronRight: "\(prefix).chevronRight"
         case .error: "\(prefix).error"
         case .spinner: "\(prefix).spinner"
+        case .keyOff: "\(prefix).keyOff"
         case .switchCamera: "\(prefix).switchCamera"
         case .raisedHand: "\(prefix).raisedHand"
         case .userProfile: "\(prefix).userProfile"

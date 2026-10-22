@@ -48,8 +48,7 @@ struct ElementCallFullscreenChrome: View {
             HStack(spacing: 4) {
                 // The name tag's spinner in the microphone's place, as on the tile (034 R29).
                 if tile.isMediaInterrupted {
-                    ElementCallSpinner()
-                        .accessibilityLabel(tile.mediaState == .undecryptable ? style.strings.mediaUndecryptable : style.strings.mediaReconnecting)
+                    ElementCallMediaIndicator(state: tile.mediaState)
                 } else {
                     style.icons.icon(tile.isMicrophoneMuted ? .micOff : .micOn, size: .xSmall, relativeTo: .bodySM)
                 }

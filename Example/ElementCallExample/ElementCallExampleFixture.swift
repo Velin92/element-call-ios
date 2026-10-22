@@ -59,6 +59,7 @@ enum ElementCallExampleFixture: String, CaseIterable {
     case outageOwnSFUBudget = "outage.own_sfu.budget"
     case outagePeerSFU1m = "outage.peer_sfu.1m"
     case outageKeyUndeliveredThenDelivered = "outage.key.undelivered_then_delivered"
+    case outageKeyMissing = "outage.key.missing"
     
     /// `-fixture <key>` opens a fixture and `-scenario <name>` a scenario file, mirroring Android's
     /// `--es fixture` and `--es scenario` so one recipe reads the same on both.
@@ -79,7 +80,7 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case .joining, .connectingMedia, .failed, .ended: .connecting
         case .ringingPickup, .ringingVoicePickup, .ringingDeclined, .ringingUnanswered: .ringing
         case .outageHomeserver30s, .outageHomeserverLapse, .outageOwnSFURecovers40s, .outageOwnSFUBudget, .outagePeerSFU1m,
-             .outageKeyUndeliveredThenDelivered: .outages
+             .outageKeyUndeliveredThenDelivered, .outageKeyMissing: .outages
         default: .connected
         }
     }
@@ -121,6 +122,7 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case .outageOwnSFUBudget: "Our media server never back"
         case .outagePeerSFU1m: "Carol and Bob's media server away for 1 min"
         case .outageKeyUndeliveredThenDelivered: "Erin's key late by 10 s"
+        case .outageKeyMissing: "Erin's key never arrives"
         }
     }
     
@@ -158,7 +160,8 @@ enum ElementCallExampleFixture: String, CaseIterable {
         case .outageOwnSFURecovers40s: "From 5 s: our tile's spinner and sharing disabled, until 45 s."
         case .outageOwnSFUBudget: "From 5 s our media reconnects; at 15 s the call fails and says why."
         case .outagePeerSFU1m: "From 5 s Carol and Bob are avatars with a spinner, until 65 s."
-        case .outageKeyUndeliveredThenDelivered: "From 5 s Erin cannot be decrypted, until 15 s; shown from 10 s, after the key grace."
+        case .outageKeyUndeliveredThenDelivered: "From 5 s Erin cannot be decrypted, until 15 s; her spinner from 6.5 s, after the key grace, and no indicator."
+        case .outageKeyMissing: "From 5 s Erin cannot be decrypted; her spinner from 6.5 s, the key-off icon from 16.5 s, and no indicator."
         }
     }
     
@@ -288,6 +291,8 @@ enum ElementCallExampleFixture: String, CaseIterable {
             return .outage(.peerSFU1m)
         case .outageKeyUndeliveredThenDelivered:
             return .outage(.keyUndeliveredThenDelivered)
+        case .outageKeyMissing:
+            return .outage(.keyMissing)
         case .joining:
             return .connecting(.joining)
         case .connectingMedia:

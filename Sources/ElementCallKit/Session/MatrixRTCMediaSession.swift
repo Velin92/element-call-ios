@@ -35,7 +35,12 @@ public final class MatrixRTCMediaSession {
     public private(set) var interruptions: MatrixRTCInterruptions = .none
     /// Members undecryptable for less than ``keyGrace`` without a break.
     public private(set) var membersWithinKeyGrace: Set<String> = []
-    @ObservationIgnored private var keyGraceExpiries: [String: Task<Void, Never>] = [:]
+    /// Members undecryptable for longer than ``keyGrace`` and ``keysMissingAfter`` together,
+    /// without a break.
+    public private(set) var membersMissingKeys: Set<String> = []
+    /// A member's current spell of being undecryptable: the end of its grace, and the moment its
+    /// keys count as missing.
+    @ObservationIgnored private var keySpells: [String: [Task<Void, Never>]] = [:]
     
     /// How long a member may be undecryptable before their tile shows it. Every join
     /// and every leave rotates the keys, and for a moment around each rotation frames arrive under
@@ -51,6 +56,13 @@ public final class MatrixRTCMediaSession {
     /// under a second. The indicator never counts a missing key at all. On the call's clock so a
     /// scenario can step past it.
     public static let keyGrace: Duration = .milliseconds(1500)
+    
+    /// How long a tile shows it is waiting for a member's key before saying the key is missing.
+    /// Counted from the end of ``keyGrace``, so the spinner always has this long. Nothing here can
+    /// tell why a key does not come — a slow send, a session that is wedged, a device we do not
+    /// trust, federation lag — so past this a tile says only that it is missing, for that one member
+    /// (feature-hq 034 Q8).
+    public static let keysMissingAfter: Duration = .seconds(10)
     
     /// Our own tile — and the reason this is not simply `localState?.tile`.
     ///
@@ -791,7 +803,7 @@ public final class MatrixRTCMediaSession {
         pendingReleases.values.forEach { $0.cancel() }
         pendingReleases.removeAll()
         tasks.forEach { $0.cancel() }
-        keyGraceExpiries.values.forEach { $0.cancel() }
+        keySpells.values.joined().forEach { $0.cancel() }
         tasks.removeAll()
         audioLevelFlush?.cancel()
         audioLevelFlush = nil
@@ -858,24 +870,32 @@ public final class MatrixRTCMediaSession {
         }
         tiles = mapped
         reconcilePlayback()
-        reconcileKeyGrace()
+        reconcileKeySpells()
     }
     
     /// From both the tiles and the record: a change reaches the tiles first (C5), and a spell has to
     /// have begun by then or the tile draws its spinner for the moment in between.
-    private func reconcileKeyGrace() {
+    private func reconcileKeySpells() {
         let undecryptable = Set(interruptions.undecryptable)
             .union(tiles.detail.values.filter { !$0.isDecryptable }.map(\.memberID))
-        for memberID in Set(keyGraceExpiries.keys).subtracting(undecryptable) {
-            keyGraceExpiries.removeValue(forKey: memberID)?.cancel()
+        for memberID in Set(keySpells.keys).subtracting(undecryptable) {
+            keySpells.removeValue(forKey: memberID)?.forEach { $0.cancel() }
             membersWithinKeyGrace.remove(memberID)
+            membersMissingKeys.remove(memberID)
         }
-        for memberID in undecryptable where keyGraceExpiries[memberID] == nil {
+        for memberID in undecryptable where keySpells[memberID] == nil {
             membersWithinKeyGrace.insert(memberID)
-            // Kept once it fires, so a spell that outlasts the grace is not granted a second one.
-            keyGraceExpiries[memberID] = clock.schedule(after: Self.keyGrace) { [weak self] in
-                self?.membersWithinKeyGrace.remove(memberID)
-            }
+            // Kept once they have fired, so a spell that outlasts the grace is not granted a
+            // second one. Both from now, rather than the second from the first, so a clock moved
+            // past both at once fires both.
+            keySpells[memberID] = [
+                clock.schedule(after: Self.keyGrace) { [weak self] in
+                    self?.membersWithinKeyGrace.remove(memberID)
+                },
+                clock.schedule(after: Self.keyGrace + Self.keysMissingAfter) { [weak self] in
+                    self?.membersMissingKeys.insert(memberID)
+                }
+            ]
         }
     }
     
@@ -893,7 +913,7 @@ public final class MatrixRTCMediaSession {
         guard mapped != interruptions else { return }
         MatrixRTCLog.info("Interruptions: \(mapped)")
         interruptions = mapped
-        reconcileKeyGrace()
+        reconcileKeySpells()
     }
     
     private func pumpEvents() async {

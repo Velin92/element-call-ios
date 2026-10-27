@@ -22,6 +22,8 @@ import MatrixRustSDK
 /// whose default isolation is the main actor, as Element X's is, must be able to copy them unchanged.
 final nonisolated class SdkMatrixBackend: MatrixBackend {
     static let redactionEventType = "m.room.redaction"
+    /// The core retries a failed send itself, within its own budget, so the SDK must not retry underneath it.
+    static let noRetry = RequestConfigOverride(retryLimit: 0, timeout: nil)
     
     private let client: Client
     private let userID: String
@@ -51,14 +53,18 @@ final nonisolated class SdkMatrixBackend: MatrixBackend {
     
     func sendStickyEvent(roomId: String, eventType: String, contentJson: String, durationMs: UInt64) async throws -> String {
         try await send("sendStickyEvent(\(eventType))") {
-            try await room(roomId).sendStickyRaw(eventType: eventType, content: contentJson, durationMs: durationMs)
+            try await room(roomId).sendStickyRaw(eventType: eventType, content: contentJson, durationMs: durationMs, requestConfigOverride: Self.noRetry)
         }
     }
     
     /// The bindings have no delayed events (matrix-rust-sdk#6973), so this answers as a homeserver
     /// without MSC4140: the core joins without a dead man's switch, never asks again this session, and
     /// shortens the membership's lifetime instead.
-    func sendDelayedEvent(roomId: String, eventType: String, stateKey: String?, contentJson: String, delayMs: UInt64) async throws -> String {
+    func sendDelayedStateEvent(roomId: String, eventType: String, stateKey: String, contentJson: String, delayMs: UInt64) async throws -> String {
+        throw Self.delayedEventsNotSupported
+    }
+    
+    func sendDelayedStickyEvent(roomId: String, eventType: String, contentJson: String, stickyDurationMs: UInt64, delayMs: UInt64) async throws -> String {
         throw Self.delayedEventsNotSupported
     }
     
@@ -73,13 +79,13 @@ final nonisolated class SdkMatrixBackend: MatrixBackend {
     
     func sendStateEvent(roomId: String, eventType: String, stateKey: String, contentJson: String) async throws -> String {
         try await send("sendStateEvent(\(eventType))") {
-            try await room(roomId).sendStateEventRaw(eventType: eventType, stateKey: stateKey, content: contentJson)
+            try await room(roomId).sendStateEventRaw(eventType: eventType, stateKey: stateKey, content: contentJson, requestConfigOverride: Self.noRetry)
         }
     }
     
     func sendRoomEvent(roomId: String, eventType: String, contentJson: String) async throws -> String {
         try await send("sendRoomEvent(\(eventType))") {
-            try await room(roomId).sendRaw(eventType: eventType, content: contentJson)
+            try await room(roomId).sendRaw(eventType: eventType, content: contentJson, requestConfigOverride: Self.noRetry)
         }
     }
     

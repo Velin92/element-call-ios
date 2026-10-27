@@ -43,7 +43,11 @@ public final nonisolated class ElementCallFakeMatrixBackend: MatrixBackend {
         "$event"
     }
     
-    public func sendDelayedEvent(roomId: String, eventType: String, stateKey: String?, contentJson: String, delayMs: UInt64) async throws -> String {
+    public func sendDelayedStateEvent(roomId: String, eventType: String, stateKey: String, contentJson: String, delayMs: UInt64) async throws -> String {
+        "delay"
+    }
+    
+    public func sendDelayedStickyEvent(roomId: String, eventType: String, contentJson: String, stickyDurationMs: UInt64, delayMs: UInt64) async throws -> String {
         "delay"
     }
     

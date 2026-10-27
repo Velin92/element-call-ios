@@ -65,39 +65,40 @@ public nonisolated protocol ElementCallThemeProtocol: Sendable {
     @MainActor var soundWaveEdge: Color { get }
 }
 
+@MainActor
 public extension ElementCallThemeProtocol {
     /// The design's gradients, so a host theme written before these existed keeps compiling and
     /// gets the designed rings rather than none.
-    @MainActor func activeSpeakerBorder(in size: CGSize) -> [AnyShapeStyle] {
+    func activeSpeakerBorder(in size: CGSize) -> [AnyShapeStyle] {
         ElementCallBorderGradient.activeSpeaker.layers(in: size)
     }
     
-    @MainActor func raisedHandBorder(in size: CGSize) -> [AnyShapeStyle] {
+    func raisedHandBorder(in size: CGSize) -> [AnyShapeStyle] {
         ElementCallBorderGradient.raisedHand.layers(in: size)
     }
     
     /// Compound's sizes as system text styles, as the token theme draws every font, so a host theme
     /// written before these existed keeps compiling and the failure screen still scales.
-    @MainActor var bodyLG: Font {
+    var bodyLG: Font {
         .system(.body)
     }
     
-    @MainActor var headingMDBold: Font {
+    var headingMDBold: Font {
         .system(.title2, weight: .bold)
     }
     
     /// Compound's own, which follows the colour scheme, so a host theme written before this existed
     /// keeps compiling and draws the name tag's spinner as designed.
-    @MainActor var iconSecondary: Color {
+    var iconSecondary: Color {
         CompoundCoreColorTokens.gray900
     }
     
     /// Element Call web's: the dark theme's translucent greys, since the call screen is always dark.
-    @MainActor var soundWaveFills: [Color] {
+    var soundWaveFills: [Color] {
         [CompoundCoreColorTokens.alphaGray400, CompoundCoreColorTokens.alphaGray300, CompoundCoreColorTokens.alphaGray200]
     }
     
-    @MainActor var soundWaveEdge: Color {
+    var soundWaveEdge: Color {
         CompoundCoreColorTokens.alphaGray300
     }
 }
@@ -197,8 +198,8 @@ public nonisolated protocol ElementCallIconRenderingProtocol: Sendable {
     func icon(_ icon: ElementCallIcon, size: ElementCallIconSize, relativeTo textStyle: ElementCallTextStyle?) -> AnyView
 }
 
+@MainActor
 public extension ElementCallIconRenderingProtocol {
-    @MainActor
     func icon(_ icon: ElementCallIcon, size: ElementCallIconSize = .medium) -> AnyView {
         self.icon(icon, size: size, relativeTo: nil)
     }

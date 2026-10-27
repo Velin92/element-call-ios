@@ -56,9 +56,9 @@ public nonisolated enum CallAudioSessionConfigurator {
     /// about which platforms they apply to.
     public static var isSelfActivating: Bool {
         #if targetEnvironment(simulator)
-        return true
+        true
         #else
-        return ProcessInfo.processInfo.isiOSAppOnMac
+        ProcessInfo.processInfo.isiOSAppOnMac
         #endif
     }
     

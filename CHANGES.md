@@ -11,6 +11,10 @@ version will actually read it.
 
 ## Unreleased
 
+_Nothing yet._
+
+## 0.1.0-rc.12 - 2026-10-27
+
 **The host brings the core's `MatrixBackend`, and the package no longer depends on the Matrix SDK.**
 `ElementCallMatrix` is gone, with `ElementCallSDKTransport`, `ElementCallMatrixTransportProtocol`,
 `ElementCallMatrixRoomProtocol` and their value types, and so is `ElementCallStack`: build
@@ -22,6 +26,29 @@ as long as it is at least 26.10.27.
 
 `MatrixBackend.sendDelayedEvent` is `sendDelayedStateEvent` and `sendDelayedStickyEvent` (matrix-rust-rtc
 0.5.0-rc.8); `SdkMatrixBackend` refuses both. Its sends no longer let the SDK retry, leaving retries to the core.
+
+
+
+### What's Changed
+
+✨ Features
+* Spec034: resilience to transient network and infrastructure failures by @BillCarsonFr in https://github.com/element-hq/element-call-ios/pull/75
+
+🐛 Bugfixes
+* Let our inline tile go full screen in a small call by @BillCarsonFr in https://github.com/element-hq/element-call-ios/pull/71
+* CallKit speaker button flips back to off after clicking on by @Paray01 in https://github.com/element-hq/element-call-ios/pull/70
+
+⚠️ API Changes
+* Retire the widget driver and the SDK dependency by @BillCarsonFr in https://github.com/element-hq/element-call-ios/pull/74
+* chore: bump matrix-rust-rtc 0.5.0-rc.8 by @BillCarsonFr in https://github.com/element-hq/element-call-ios/pull/76
+
+🧱 Build
+* chore: releases are immutable by @BillCarsonFr in https://github.com/element-hq/element-call-ios/pull/77
+
+### New Contributors
+* @Paray01 made their first contribution in https://github.com/element-hq/element-call-ios/pull/70
+
+**Full Changelog**: https://github.com/element-hq/element-call-ios/compare/0.1.0-rc.11...0.1.0-rc.12
 
 ## 0.1.0-rc.11 - 2026-10-15
 

@@ -160,7 +160,8 @@ dispatch again.
 
 **Never delete and re-push a tag to retry.** A host may already have resolved it, and SwiftPM caches
 by tag, so a tag that changes meaning is far worse than a missing release page. Release a new patch
-instead.
+instead. Once the release is published, immutability enforces this: its tag can be neither moved nor
+reused.
 
 ## Bump the host
 
@@ -321,6 +322,10 @@ LABELS
 The ten `pr-` labels must exist before the first release, because `.github/release.yml` reads them
 — nine to categorise by and `pr-task` to exclude — and a label that does not exist cannot be
 applied. Keep this list and that file in step.
+
+**Release immutability is on** (Settings → General → Releases): a published release and its tag
+never change. The workflow needs nothing for it, because the release carries no assets and is
+complete the moment it is created.
 
 | Secret | Used for |
 | --- | --- |

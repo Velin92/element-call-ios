@@ -18,7 +18,10 @@ version will actually read it.
 three files in `Example/ElementCallExample/Matrix/` into your app for
 `SdkMatrixBackend(client:logger:)`, a backend over the Rust SDK's `Client`; `import ElementCall`
 brings the core's types it needs, so your manifest gains no dependency. Your SDK pin is now your own,
-as long as it is at least 26.10.15.
+as long as it is at least 26.10.27.
+
+`MatrixBackend.sendDelayedEvent` is `sendDelayedStateEvent` and `sendDelayedStickyEvent` (matrix-rust-rtc
+0.5.0-rc.8); `SdkMatrixBackend` refuses both. Its sends no longer let the SDK retry, leaving retries to the core.
 
 ## 0.1.0-rc.11 - 2026-10-15
 

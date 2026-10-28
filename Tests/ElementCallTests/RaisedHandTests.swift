@@ -21,7 +21,7 @@ import Testing
 struct RaisedHandTests {
     @Test
     func raisingAndLoweringGoThroughToTheCore() async throws {
-        let rtcCall = FakeRtcCall()
+        let rtcCall = FakeRTCCall()
         let call = MatrixRTCCall(rtcCall: rtcCall)
         
         async let raised: Void = call.raiseHand()
@@ -39,12 +39,12 @@ struct RaisedHandTests {
     
     @Test
     func aRefusalReachesTheCaller() async throws {
-        let rtcCall = FakeRtcCall()
+        let rtcCall = FakeRTCCall()
         let call = MatrixRTCCall(rtcCall: rtcCall)
         
         let raised = Task { try await call.raiseHand() }
         try await waitForPendingRequest(on: rtcCall)
-        rtcCall.answer(failingWith: FakeRtcCall.RefusedError())
+        rtcCall.answer(failingWith: FakeRTCCall.RefusedError())
         
         await #expect(throws: MatrixRTCError.self) { try await raised.value }
     }
@@ -55,8 +55,8 @@ struct RaisedHandTests {
 @Suite("Raised hand control")
 @MainActor
 struct RaisedHandControlTests {
-    private func makeController() -> (ElementCallController, FakeRtcCall) {
-        let rtcCall = FakeRtcCall()
+    private func makeController() -> (ElementCallController, FakeRTCCall) {
+        let rtcCall = FakeRTCCall()
         let controller = ElementCallController.fake(connection: .connected)
         controller.setPreviewState(callData: .init(isAudioCall: false, isStartingCall: true),
                                    room: ElementCallFakeRoom(),
@@ -103,7 +103,7 @@ struct RaisedHandControlTests {
         
         controller.setHandRaised(false)
         try await waitForPendingRequest(on: rtcCall)
-        rtcCall.answer(failingWith: FakeRtcCall.RefusedError())
+        rtcCall.answer(failingWith: FakeRTCCall.RefusedError())
         
         for _ in 0..<1000 where controller.errorMessage == nil {
             try await Task.sleep(for: .milliseconds(5))
@@ -170,7 +170,7 @@ struct RaisedHandControlTests {
         #expect(MatrixRTCTile(ffi, localMemberID: "me").handRaisedPosition == 3)
     }
     
-    private func waitUntilAnswered(_ rtcCall: FakeRtcCall) async throws {
+    private func waitUntilAnswered(_ rtcCall: FakeRTCCall) async throws {
         // The answer resumes the controller's task, which then has one more hop to make.
         for _ in 0..<1000 where rtcCall.pendingRequestCount > 0 {
             try await Task.sleep(for: .milliseconds(5))
@@ -245,7 +245,7 @@ struct ControlBarLengthTests {
 
 /// Until the fake holds a request. Bounded, so a request that never arrives fails rather than hangs.
 @MainActor
-func waitForPendingRequest(on rtcCall: FakeRtcCall, count: Int = 1) async throws {
+func waitForPendingRequest(on rtcCall: FakeRTCCall, count: Int = 1) async throws {
     for _ in 0..<1000 where rtcCall.pendingRequestCount < count {
         try await Task.sleep(for: .milliseconds(5))
     }

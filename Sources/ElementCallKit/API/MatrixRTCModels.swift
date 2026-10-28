@@ -598,8 +598,8 @@ public nonisolated enum MatrixRTCError: Error, Sendable {
     case slotClosed(String)
     /// The homeserver did not let the join complete within the core's budget for it.
     case joinTimedOut
-    /// The homeserver refused the join for good; `errcode` is its Matrix error code when it gave one.
-    case joinRefused(errcode: String?, reason: String)
+    /// The homeserver refused the join for good; `errorCode` is its Matrix `errcode` when it gave one.
+    case joinRefused(errorCode: String?, reason: String)
     case ffi(String)
     case media(String)
 }

@@ -21,10 +21,11 @@ nonisolated struct UmbrellaProductTests {
         #expect(ElementCallOptions().isPictureInPictureEnabled)
         // ElementCallUI
         #expect(!ElementCallAccessibilityIdentifiers.minimizedBar.isEmpty)
-        // The core's bindings, and with them that a host can implement the backend the stack takes:
-        // the protocol comes from the core and the conformance from ElementCallHost, so this only
-        // compiles if the umbrella re-exports both.
-        let backend: any MatrixBackend = ElementCallFakeMatrixBackend()
-        #expect(backend.ownUserId() == "@alice:example.org")
+        // That a host can implement the backend the stack takes: the protocol comes from
+        // ElementCallKit and the conformance from ElementCallHost.
+        let backend: any ElementCallMatrixBackendProtocol = ElementCallFakeMatrixBackend()
+        #expect(backend.userID == "@alice:example.org")
+        // The core's bindings.
+        #expect(!sdkVersion().isEmpty)
     }
 }

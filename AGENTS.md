@@ -21,8 +21,8 @@ knows, and what tends to go wrong.
 | `ElementCallHost` | nothing beyond the above | call lifecycle, Picture in Picture, **the ports** |
 | `ElementCallUI` | `CompoundDesignTokens` | stage, tiles, controls, minimized bar |
 
-1. **No `MatrixRustSDK`, in any module.** The host implements the core's own `MatrixBackend` over its
-   client and hands it to `ElementCallController`. A library that depends on the SDK holds back every
+1. **No `MatrixRustSDK`, in any module.** The host implements `ElementCallMatrixBackendProtocol` over
+   its client and hands it to `ElementCallController`. A library that depends on the SDK holds back every
    SDK bump of its host, so the only SDK code here is the reference backend in
    `Example/ElementCallExample/Matrix`, which a host copies.
 2. **Never `import Compound`, in any module.** Its colours live on one shared instance the host
@@ -36,8 +36,8 @@ SwiftLint enforces 1 and 2 at error severity. **If you need something from the h
 add a dependency.**
 
 A fourth target, **`ElementCall`**, exists only to `@_exported import` the three above, and the
-core's bindings a host needs to implement `MatrixBackend`, so a host takes one dependency and writes
-one import. **We own the core's version**: the host never declares `matrix-rust-rtc` itself, so a core
+core's bindings, so a host takes one dependency and writes one import. A host needs none of the
+bindings to integrate: see [The call's Matrix backend](#the-calls-matrix-backend). **We own the core's version**: the host never declares `matrix-rust-rtc` itself, so a core
 bump here needs no edit in the host's manifest. Do not narrow the core re-export to a few types
 either; Android exposes the whole core to hosts too (`api(...)`). It contains no code and must never
 contain any: it is a product convenience, not a fourth layer, and putting anything in it would put
@@ -115,7 +115,7 @@ reason: **a gesture is the one thing the package's own tests cannot reach.** Eve
 in-process, but a double tap that is declared correctly and never arrives, because something above
 the tile claimed the touch first, looks identical to a working one from inside. Only a real touch
 tells them apart, and only XCUITest can send one, which needs an application and so a project.
-It also carries the reference `MatrixBackend` over the Rust SDK (see the core's Matrix backend,
+It also carries the reference Matrix backend over the Rust SDK (see the call's Matrix backend,
 below), the one place this repository depends on the SDK.
 
 ```bash
@@ -370,20 +370,27 @@ Swift packages are released. Do not add a `binaryTarget` or a build-and-attach s
 workflow. [RELEASING.md](RELEASING.md) has the reasoning and the trigger that would justify revisiting
 it.
 
-## The core's Matrix backend
+## The call's Matrix backend
 
-The core reaches Matrix through the host's `MatrixBackend`, passed straight to the core's
-`RtcClient`; there is no adapter of ours in between. `SdkMatrixBackend` in the example is the
-reference, and three things about any backend are easy to break:
+The host implements **`ElementCallMatrixBackendProtocol`**, and `MatrixBackendAdapter` turns it into
+the core's own `MatrixBackend` for `RtcClient`. **Do not hand the core's protocol to hosts again.** It
+is generated from Rust, so it spells `roomId`, `contentJson` and `delayMs`, takes `Ffi…` values, and a
+host conforming to it has to repeat all of that in its own code. 0.1.0-rc.12 did exactly that, and
+element-x-ios's review rejected it. The adapter is the one place those spellings meet ours; a
+requirement the core gains is added to the port in Swift's terms (`Duration` for a `…Ms`, `Date` for a
+timestamp, a typed error) and converted there.
+
+`SDKMatrixBackend` in the example is the reference, and three things about any backend are easy to
+break:
 
 - **Every set-shaped subject of a room delivers its current set first, an empty one included.** The
   core treats a room as ready only once each subject has delivered once, and has no deadline of its
   own; holding back an empty set makes the join hang until `MatrixRTCClient.seedingTimeout`. The
   joined members are the exception that proves it: they always include us, so an empty read is the
   store not having loaded and is rightly held back.
-- **Failures are passed on, never classified.** `FfiBackendError.Failed` carries the homeserver's
-  `errcode` and its retry-after; the core decides what is retried and which refusals retire a
-  feature for the session. The one judgement a backend makes is `permanent`, and only for a final
+- **Failures are passed on, never classified.** `ElementCallMatrixBackendError` carries the
+  homeserver's `errcode` and its retry-after; the core decides what is retried and which refusals
+  retire a feature for the session. The one judgement a backend makes is `isPermanent`, and only for a final
   failure no Matrix code describes, such as a room the client is not in: set on a failure that was
   transient, it loses that send for good. A read the backend cannot serve answers empty
   (`relations` is `[]`) rather than failing.
@@ -414,7 +421,17 @@ stripped from an app that never makes them.
   and `ElementCallView` both decide on `width > height` and must keep agreeing. An iPad in landscape
   has a *regular* vertical size class, so a size-class branch would lay its tiles out in portrait
   rows while its width says landscape.
-- Follow the [Swift API Design Guidelines]: `ID` not `Id`, `URL` not `Url`.
+- **Follow the [Swift API Design Guidelines] everywhere**, the same rule element-x-ios reviews this
+  package's API against. Initialisms take uniform case (`roomID`, `contentJSON`, `openIDToken`,
+  `SDKMatrixBackend`, `MatrixRTC…`), names are not abbreviated (`relationshipType`, not `relType`;
+  `configuration`, not `config`), and a unit is a type rather than a suffix (`delay: Duration`, not
+  `delayMs: UInt64`; `timestamp: Date`). **Names generated from Rust break all three**, which is the
+  trap: copying one — a pattern binding off a generated enum, a fake's property, a log record field —
+  makes it ours. Generated names stop at the files that convert them (`Mappers.swift`,
+  `MatrixBackendAdapter.swift`) and at conformances to generated protocols, whose requirement names
+  are not ours to choose. SwiftLint's `swift_api_naming` and `swift_api_type_naming` reject a declared
+  name that breaks this, at error severity; they exempt only those conformances. They do not see
+  argument labels, so check a new `func`'s labels by eye.
 - **Every port protocol ends in `Protocol`**, and this is a deliberate exception to those
   guidelines, which would have `ElementCallSystemProvidingProtocol` be `ElementCallSystemProviding`
   and `ElementCallRoomContextProtocol` be `ElementCallRoomContext`. The host asked for it: element-x-ios
@@ -426,7 +443,8 @@ stripped from an app that never makes them.
   `ElementCallFakeMatrixBackend`, the rest of the `ElementCallFake*` family) keep plain names, which
   is what makes the suffix carry information. So does a port that is a plain value rather than something a host
   implements — `ElementCallOptions` and `ElementCallStrings` are structs with every member defaulted,
-  and the suffix would be a lie on them. The core's `MatrixBackend` is not ours and keeps its name.
+  and the suffix would be a lie on them. The core's `MatrixBackend` is not ours and keeps its name;
+  hosts implement `ElementCallMatrixBackendProtocol` instead.
 - `MatrixRTC*` prefixed types name **protocol** concepts and keep that prefix. `ElementCall*` names our
   own API. Note the casing: the initialism is uniform, per the API design guidelines below. The
   bindings' own module is `MatrixRtc`, spelled exactly that way, and `import MatrixRtc` plus the

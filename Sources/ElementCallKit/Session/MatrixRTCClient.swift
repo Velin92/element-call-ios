@@ -17,12 +17,12 @@ public final class MatrixRTCClient {
     /// otherwise leave the join spinning for good.
     static let seedingTimeout: Duration = .seconds(30)
     
-    private let backend: any MatrixBackend
+    private let backend: MatrixBackendAdapter
     private let clock: any Clock<Duration>
     private lazy var client = RtcClient(backend: backend)
     
-    public init(backend: any MatrixBackend, clock: any Clock<Duration> = ContinuousClock()) {
-        self.backend = backend
+    public init(backend: any ElementCallMatrixBackendProtocol, clock: any Clock<Duration> = ContinuousClock()) {
+        self.backend = MatrixBackendAdapter(backend)
         self.clock = clock
     }
     
@@ -106,7 +106,7 @@ public final class MatrixRTCRoom {
     public let roomID: String
     /// What a join tells the homeserver to keep us in the call for without hearing from us. The core
     /// restarts it on its own schedule.
-    static let keepAliveTimeoutMs: UInt64 = 20000
+    static let keepAliveTimeout: Duration = .seconds(20)
     
     private let rtcRoom: RtcRoom
     private var call: MatrixRTCCall?
@@ -126,7 +126,7 @@ public final class MatrixRTCRoom {
             rtcCall = try await rtcRoom.joinCall(params: FfiJoinSessionParams(applicationSlotId: nil,
                                                                               transport: .advertised,
                                                                               kind: kind.ffi,
-                                                                              keepAliveTimeoutMs: Self.keepAliveTimeoutMs,
+                                                                              keepAliveTimeoutMs: Self.keepAliveTimeout.inMilliseconds,
                                                                               stickyDurationMs: nil, // The core owns the membership lifetime.
                                                                               encryptionConfig: nil)) // Follow whatever the slot prescribes.
         } catch MatrixRtcFfiError.SlotClosed(let message) {
@@ -135,9 +135,9 @@ public final class MatrixRTCRoom {
         } catch MatrixRtcFfiError.JoinTimedOut {
             MatrixRTCLog.error("Join timed out in \(roomID)")
             throw MatrixRTCError.joinTimedOut
-        } catch MatrixRtcFfiError.JoinRefused(let errcode, let reason) {
-            MatrixRTCLog.error("Join refused in \(roomID): \(errcode ?? "no code") \(reason)")
-            throw MatrixRTCError.joinRefused(errcode: errcode, reason: reason)
+        } catch MatrixRtcFfiError.JoinRefused(let errorCode, let reason) {
+            MatrixRTCLog.error("Join refused in \(roomID): \(errorCode ?? "no code") \(reason)")
+            throw MatrixRTCError.joinRefused(errorCode: errorCode, reason: reason)
         } catch {
             MatrixRTCLog.error("Join failed in \(roomID): \(error)")
             throw MatrixRTCError.ffi("\(error)")

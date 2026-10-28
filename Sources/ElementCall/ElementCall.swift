@@ -14,9 +14,9 @@
 // dependency on the view layer. A host that only wants the media layer can still depend on
 // ElementCallKit alone, because all three products are still published.
 //
-// The core's bindings are re-exported as well, because the host implements the core's own
-// MatrixBackend and hands it to ElementCallController: without this, a host would need a second
-// dependency on matrix-rust-rtc, pinned to exactly the version this package resolves.
+// The core's bindings are re-exported as well, as Android exposes the whole core to its hosts. A host
+// needs none of them to integrate: the Matrix backend it implements is ours,
+// ElementCallMatrixBackendProtocol, so that its code never repeats the bindings' generated names.
 //
 // `@_exported` is underscored, and it is the only way to do this: a product listing several
 // targets still makes the host write one import per module, because a product is a linkage unit

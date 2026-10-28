@@ -11,7 +11,18 @@ version will actually read it.
 
 ## Unreleased
 
-_Nothing yet._
+**The host implements `ElementCallMatrixBackendProtocol`, no longer the core's `MatrixBackend`.** The
+core's protocol is generated from Rust, so a host conforming to it had to repeat `roomId`,
+`contentJson`, `delayMs` and `Ffi…` values in its own code. The port speaks Swift: `roomID`,
+`contentJSON`, `relationshipType`, `delay: Duration`, `ElementCallMatrixEvent` and
+`ElementCallOpenIDToken`, failures as a typed `ElementCallMatrixBackendError`, and `userID` and
+`deviceID` as properties. `sendToDeviceMessage` returns only the recipients it could not reach.
+`ElementCallController(backend:…)` and `MatrixRTCClient(backend:)` take the port. The reference
+backend is now `SDKMatrixBackend`, with `SDKMappings` and `SDKRoomFeeds`: copy the three files in
+`Example/ElementCallExample/Matrix/` again rather than editing your copy.
+
+**`MatrixRTCLogRecord.timestampMs` is `timestamp: Date`**, and **`MatrixRTCError.joinRefused(errcode:reason:)`
+is `joinRefused(errorCode:reason:)`.**
 
 ## 0.1.0-rc.12 - 2026-10-27
 

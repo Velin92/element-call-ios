@@ -58,8 +58,8 @@ nonisolated extension MatrixRTCCallStatus {
             self = .connecting
         case .calling(let callee, let ring, let media):
             self = .calling(callee: callee, ring: .init(ring), media: .init(media))
-        case .connected(let sinceMs, let degraded):
-            self = .connected(since: Date(milliseconds: sinceMs), isDegraded: degraded)
+        case .connected(let since, let degraded):
+            self = .connected(since: Date(milliseconds: since), isDegraded: degraded)
         case .ended(let reason):
             self = .ended(.init(reason))
         }
@@ -71,8 +71,8 @@ nonisolated extension MatrixRTCRingPhase {
         switch phase {
         case .sending:
             self = .sending
-        case .ringing(let sentAtMs, let lifetimeMs):
-            self = .ringing(sentAt: Date(milliseconds: sentAtMs), lifetime: .milliseconds(lifetimeMs))
+        case .ringing(let sentAt, let lifetime):
+            self = .ringing(sentAt: Date(milliseconds: sentAt), lifetime: .milliseconds(lifetime))
         }
     }
 }
@@ -123,14 +123,14 @@ nonisolated extension MatrixRTCSignallingHealth {
     init(_ health: FfiSignallingHealth) {
         switch health {
         case .reachable: self = .reachable
-        case .unreachable(let sinceMs): self = .unreachable(since: Date(milliseconds: sinceMs))
+        case .unreachable(let since): self = .unreachable(since: Date(milliseconds: since))
         }
     }
     
     var ffi: FfiSignallingHealth {
         switch self {
         case .reachable: .reachable
-        case .unreachable(let since): .unreachable(sinceMs: UInt64(max(0, since.timeIntervalSince1970 * 1000)))
+        case .unreachable(let since): .unreachable(sinceMs: since.millisecondsSince1970)
         }
     }
 }
@@ -307,31 +307,31 @@ nonisolated extension MatrixRTCCallEvent {
     /// Nil for what is not surfaced.
     init?(_ event: FfiCallEvent) {
         switch event {
-        case .participantJoined(let memberId, let userId, let participantCount):
-            self = .participantJoined(memberID: memberId, userID: userId, participantCount: Int(participantCount))
-        case .participantLeft(let memberId, let participantCount):
-            self = .participantLeft(memberID: memberId, participantCount: Int(participantCount))
-        case .streamStarted(let memberId, let kind):
-            self = .streamStarted(memberID: memberId, kind: .init(kind))
-        case .streamStopped(let memberId, let kind):
-            self = .streamStopped(memberID: memberId, kind: .init(kind))
-        case .streamMuted(let memberId, let kind):
-            self = .streamMuted(memberID: memberId, kind: .init(kind))
-        case .streamUnmuted(let memberId, let kind):
-            self = .streamUnmuted(memberID: memberId, kind: .init(kind))
-        case .keyImported(let memberId, let keyIndex):
-            self = .keyImported(memberID: memberId, keyIndex: keyIndex)
-        case .frameEncryptionState(let memberId, let state, _):
-            self = .frameEncryptionState(memberID: memberId, state: .init(state))
-        case .keyDiscarded(let memberId, let keyIndex, let senderUserId, let senderDeviceId, let reason):
-            self = .keyDiscarded(memberID: memberId,
-                                 reason: "index \(keyIndex.map(String.init) ?? "?") from \(senderUserId ?? "?")/\(senderDeviceId ?? "?"): \(reason)")
-        case .handRaised(let memberId, let raisedAtMs):
-            self = .handRaised(memberID: memberId, raisedAt: Date(milliseconds: raisedAtMs))
-        case .handLowered(let memberId):
-            self = .handLowered(memberID: memberId)
-        case .reaction(let memberId, let emoji, let name, _):
-            self = .reaction(memberID: memberId, emoji: emoji, name: name)
+        case .participantJoined(let memberID, let userID, let participantCount):
+            self = .participantJoined(memberID: memberID, userID: userID, participantCount: Int(participantCount))
+        case .participantLeft(let memberID, let participantCount):
+            self = .participantLeft(memberID: memberID, participantCount: Int(participantCount))
+        case .streamStarted(let memberID, let kind):
+            self = .streamStarted(memberID: memberID, kind: .init(kind))
+        case .streamStopped(let memberID, let kind):
+            self = .streamStopped(memberID: memberID, kind: .init(kind))
+        case .streamMuted(let memberID, let kind):
+            self = .streamMuted(memberID: memberID, kind: .init(kind))
+        case .streamUnmuted(let memberID, let kind):
+            self = .streamUnmuted(memberID: memberID, kind: .init(kind))
+        case .keyImported(let memberID, let keyIndex):
+            self = .keyImported(memberID: memberID, keyIndex: keyIndex)
+        case .frameEncryptionState(let memberID, let state, _):
+            self = .frameEncryptionState(memberID: memberID, state: .init(state))
+        case .keyDiscarded(let memberID, let keyIndex, let senderUserID, let senderDeviceID, let reason):
+            self = .keyDiscarded(memberID: memberID,
+                                 reason: "index \(keyIndex.map(String.init) ?? "?") from \(senderUserID ?? "?")/\(senderDeviceID ?? "?"): \(reason)")
+        case .handRaised(let memberID, let raisedAt):
+            self = .handRaised(memberID: memberID, raisedAt: Date(milliseconds: raisedAt))
+        case .handLowered(let memberID):
+            self = .handLowered(memberID: memberID)
+        case .reaction(let memberID, let emoji, let name, _):
+            self = .reaction(memberID: memberID, emoji: emoji, name: name)
         case .unknownParticipant(let identity):
             // The transport knows an identity the membership projection doesn't (yet). What the UI
             // shows for it comes from the interruptions record, which lists it for as long as it

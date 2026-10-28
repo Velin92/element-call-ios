@@ -28,11 +28,12 @@ constraints an agent working here must not break.
 | `ElementCallHost` | Call lifecycle, spotlight, Picture in Picture, and the ports. | nothing |
 | `ElementCallUI` | Stage, tiles, controls, minimized bar. | design tokens |
 
-No module knows the Matrix SDK exists, and SwiftLint enforces that: the host implements the core's
-`MatrixBackend` over its own client, so a host's SDK bump never waits on a release of this package.
+No module knows the Matrix SDK exists, and SwiftLint enforces that: the host implements
+`ElementCallMatrixBackendProtocol` over its own client, so a host's SDK bump never waits on a release
+of this package.
 
 **`ElementCall` itself is the umbrella**: a module containing nothing but `@_exported import` of the
-three and of the core's bindings, which a host needs to implement `MatrixBackend`. A host that wants
+three and of the core's bindings. A host that wants
 the whole thing takes that one dependency and writes one `import ElementCall`, which is why the bare
 name belongs to it rather than to a layer. The three remain published, so a host that only wants the
 media layer can still depend on `ElementCallKit` alone.
@@ -68,12 +69,12 @@ dependencies:
     product: ElementCall
 ```
 
-Then give it the core's `MatrixBackend` and a handful of small conformances, and you get a call.
-[`Example/ElementCallExample/Matrix/SdkMatrixBackend.swift`](Example/ElementCallExample/Matrix/SdkMatrixBackend.swift)
+Then give it a Matrix backend and a handful of small conformances, and you get a call.
+[`Example/ElementCallExample/Matrix/SDKMatrixBackend.swift`](Example/ElementCallExample/Matrix/SDKMatrixBackend.swift)
 is a backend over the Rust SDK's `Client`, unit-tested, to copy into your app.
 
 ```swift
-let controller = ElementCallController(backend: SdkMatrixBackend(client: client, logger: logger)!,
+let controller = ElementCallController(backend: SDKMatrixBackend(client: client, logger: logger)!,
                                        system: MyCallKitAdapter(),
                                        options: MyOptions(),
                                        style: ElementCallStyle(theme: MyTheme(),
@@ -98,7 +99,7 @@ what the room needs, and cancels those subscriptions when the call ends.
 
 | Port | What you supply | Turnkey? |
 | --- | --- | --- |
-| `MatrixBackend` (the core's) | every room send and feed, to-device, OpenID, RTC transports | copy `SdkMatrixBackend` from `Example/` |
+| `ElementCallMatrixBackendProtocol` | every room send and feed, to-device, OpenID, RTC transports | copy `SDKMatrixBackend` from `Example/` |
 | `ElementCallSystemProvidingProtocol` | CallKit, plus audio-session and mute events coming back | no |
 | `ElementCallRoomContextProtocol` | room display name, direct flag, member profiles | no |
 | `ElementCallAvatarRenderingProtocol` | avatar views, so they match your app | no |

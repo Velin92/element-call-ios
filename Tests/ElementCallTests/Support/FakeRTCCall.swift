@@ -14,7 +14,7 @@ import Synchronization
 /// status the test pushes.
 ///
 /// Everything else is inert: there is no roster.
-final class FakeRtcCall: RtcCallProtocol, Sendable {
+final class FakeRTCCall: RtcCallProtocol, Sendable {
     enum HandRequest: Equatable {
         case raise
         case lower
@@ -129,7 +129,7 @@ final class FakeRtcCall: RtcCallProtocol, Sendable {
     }
     
     func waitForEnd() async -> FfiLeaveReason {
-        fatalError("A call over FakeRtcCall is never started")
+        fatalError("A call over FakeRTCCall is never started")
     }
 }
 

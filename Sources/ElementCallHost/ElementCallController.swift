@@ -205,10 +205,10 @@ public final class ElementCallController {
     private var routeObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
     
-    /// `backend` is the core's own Matrix port, implemented by the host over its SDK client. This
-    /// package carries no SDK of its own, so it never constrains which SDK version a host is on; the
-    /// example app's `SdkMatrixBackend` is the reference to copy.
-    public init(backend: any MatrixBackend,
+    /// `backend` is the call's Matrix port, implemented by the host over its SDK client. This package
+    /// carries no SDK of its own, so it never constrains which SDK version a host is on; the example
+    /// app's `SDKMatrixBackend` is the reference to copy.
+    public init(backend: any ElementCallMatrixBackendProtocol,
                 system: any ElementCallSystemProvidingProtocol,
                 options: ElementCallOptions = .init(),
                 style: ElementCallStyle = .stock,
@@ -615,8 +615,8 @@ public final class ElementCallController {
         } catch MatrixRTCError.joinTimedOut {
             fail(.joinTimedOut)
             return nil
-        } catch MatrixRTCError.joinRefused(let errcode, let reason) {
-            fail(.joinRefused, "Join refused: \(errcode ?? "no code") \(reason)")
+        } catch MatrixRTCError.joinRefused(let errorCode, let reason) {
+            fail(.joinRefused, "Join refused: \(errorCode ?? "no code") \(reason)")
             return nil
         } catch {
             fail("Join failed: \(error)")

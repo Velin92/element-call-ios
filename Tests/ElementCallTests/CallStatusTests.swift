@@ -239,7 +239,7 @@ struct CallStatusTests {
     private struct Fixture {
         let controller: ElementCallController
         let system: ElementCallFakeSystem
-        let rtcCall: FakeRtcCall
+        let rtcCall: FakeRTCCall
         let call: MatrixRTCCall
     }
     
@@ -253,7 +253,7 @@ struct CallStatusTests {
                                                options: ElementCallOptions(),
                                                style: .stock,
                                                logger: nil)
-        let rtcCall = FakeRtcCall(status: status)
+        let rtcCall = FakeRTCCall(status: status)
         let silence = [Float](repeating: 0, count: 48000)
         let audio = CallAudio(soundEffects: CallSoundEffectRenderer(join: [], leave: [], raiseHand: [], declined: silence, timeout: silence))
         let call = MatrixRTCCall(rtcCall: rtcCall, audio: audio, clock: clock)

@@ -39,8 +39,9 @@ The three modules must compile knowing nothing about the host application, its S
 
 Concretely:
 
-- **Never `import MatrixRustSDK` in the package.** The host implements the core's `MatrixBackend`;
-  the only SDK code here is the reference backend in `Example/ElementCallExample/Matrix`.
+- **Never `import MatrixRustSDK` in the package.** The host implements
+  `ElementCallMatrixBackendProtocol`; the only SDK code here is the reference backend in
+  `Example/ElementCallExample/Matrix`.
 - **Never `import Compound`, anywhere.** Its colours live on a single shared instance the host
   re-brands at runtime, so a copy linked in here would never see the override and a re-branded host
   would get a stock-coloured call screen. Take colours through `ElementCallThemeProtocol` and icons through

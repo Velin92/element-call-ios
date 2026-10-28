@@ -8,7 +8,6 @@
 import Combine
 import ElementCallKit
 import Foundation
-import MatrixRtc
 import Synchronization
 
 // Fakes for every port, shipped in the product rather than the test target on purpose: a host needs
@@ -18,7 +17,7 @@ import Synchronization
 /// with no call in it and one LiveKit transport on offer. Every room subject delivers its current
 /// value once, so the core would treat the room as ready. Enough for a controller that never joins,
 /// and the starting point for a test that scripts specific answers.
-public final nonisolated class ElementCallFakeMatrixBackend: MatrixBackend {
+public final nonisolated class ElementCallFakeMatrixBackend: ElementCallMatrixBackendProtocol {
     public let userID: String
     public let deviceID: String
     public let transportsJSON: String
@@ -31,73 +30,61 @@ public final nonisolated class ElementCallFakeMatrixBackend: MatrixBackend {
         self.transportsJSON = transportsJSON
     }
     
-    public func ownUserId() -> String {
-        userID
-    }
-    
-    public func ownDeviceId() -> String {
-        deviceID
-    }
-    
-    public func sendStickyEvent(roomId: String, eventType: String, contentJson: String, durationMs: UInt64) async throws -> String {
+    public func sendStickyEvent(roomID: String, eventType: String, contentJSON: String, duration: Duration) async throws(ElementCallMatrixBackendError) -> String {
         "$event"
     }
     
-    public func sendDelayedStateEvent(roomId: String, eventType: String, stateKey: String, contentJson: String, delayMs: UInt64) async throws -> String {
+    public func sendDelayedStateEvent(roomID: String, eventType: String, stateKey: String, contentJSON: String, delay: Duration) async throws(ElementCallMatrixBackendError) -> String {
         "delay"
     }
     
-    public func sendDelayedStickyEvent(roomId: String, eventType: String, contentJson: String, stickyDurationMs: UInt64, delayMs: UInt64) async throws -> String {
+    public func sendDelayedStickyEvent(roomID: String, eventType: String, contentJSON: String, stickyDuration: Duration, delay: Duration) async throws(ElementCallMatrixBackendError) -> String {
         "delay"
     }
     
-    public func restartDelayedEvent(roomId: String, delayId: String) async throws { }
+    public func restartDelayedEvent(roomID: String, delayID: String) async throws(ElementCallMatrixBackendError) { }
     
-    public func cancelDelayedEvent(roomId: String, delayId: String) async throws { }
+    public func cancelDelayedEvent(roomID: String, delayID: String) async throws(ElementCallMatrixBackendError) { }
     
-    public func sendToDeviceMessage(recipients: [FfiToDeviceRecipient], messageType: String, contentJson: String) async throws -> [FfiToDeviceDelivery] {
-        recipients.map { FfiToDeviceDelivery(userId: $0.userId, deviceId: $0.deviceId, error: nil) }
+    public func sendToDeviceMessage(eventType: String, contentJSON: String, to recipients: [ElementCallDevice]) async throws(ElementCallMatrixBackendError) -> [ElementCallDevice: String] {
+        [:]
     }
     
-    public func sendStateEvent(roomId: String, eventType: String, stateKey: String, contentJson: String) async throws -> String {
+    public func sendStateEvent(roomID: String, eventType: String, stateKey: String, contentJSON: String) async throws(ElementCallMatrixBackendError) -> String {
         "$event"
     }
     
-    public func sendRoomEvent(roomId: String, eventType: String, contentJson: String) async throws -> String {
+    public func sendRoomEvent(roomID: String, eventType: String, contentJSON: String) async throws(ElementCallMatrixBackendError) -> String {
         "$event"
     }
     
-    public func redactEvent(roomId: String, eventId: String, reason: String?) async throws { }
+    public func redactEvent(roomID: String, eventID: String, reason: String?) async throws(ElementCallMatrixBackendError) { }
     
-    public func subscribeRoom(roomId: String, subjects: FfiRoomSubjects, sink: RoomSink) throws -> BackendSubscription {
-        sink.onEncryption(encrypted: true)
-        sink.onJoinedMembers(userIds: [userID])
-        sink.onStickyEvents(events: [])
+    /// Delivers every subject at once, so the subscription has nothing to cancel.
+    public func subscribeToRoom(roomID: String, subjects: ElementCallRoomSubjects, sink: ElementCallRoomSink) throws(ElementCallMatrixBackendError) -> ElementCallBackendSubscription {
+        sink.deliverEncryption(isEncrypted: true)
+        sink.deliverJoinedMembers([userID])
+        sink.deliverStickyEvents([])
         for eventType in subjects.stateEventTypes {
-            sink.onStateEvents(eventType: eventType, events: [])
+            sink.deliverStateEvents([], ofType: eventType)
         }
-        return Subscription()
+        return ElementCallBackendSubscription()
     }
     
-    public func subscribeToDevice(eventTypes: [String], sink: ToDeviceSink) throws -> BackendSubscription {
-        Subscription()
+    public func subscribeToDeviceMessages(eventTypes: [String], sink: ElementCallToDeviceSink) throws(ElementCallMatrixBackendError) -> ElementCallBackendSubscription {
+        ElementCallBackendSubscription()
     }
     
-    public func relations(roomId: String, eventId: String, relType: String, eventType: String) async throws -> [FfiEventIn] {
+    public func relations(roomID: String, eventID: String, relationshipType: String, eventType: String) async throws(ElementCallMatrixBackendError) -> [ElementCallMatrixEvent] {
         []
     }
     
-    public func openidToken() async throws -> FfiOpenIdToken {
-        FfiOpenIdToken(accessToken: "", tokenType: "Bearer", matrixServerName: "example.org", expiresInSecs: 3600)
+    public func openIDToken() async throws(ElementCallMatrixBackendError) -> ElementCallOpenIDToken {
+        ElementCallOpenIDToken(accessToken: "", tokenType: "Bearer", matrixServerName: "example.org", expiresIn: .seconds(3600))
     }
     
-    public func rtcTransports() async throws -> String {
+    public func rtcTransportsJSON() async throws(ElementCallMatrixBackendError) -> String {
         transportsJSON
-    }
-    
-    /// Nothing to cancel: every subject has already delivered all it ever will.
-    private final class Subscription: BackendSubscription {
-        func cancel() { }
     }
 }
 

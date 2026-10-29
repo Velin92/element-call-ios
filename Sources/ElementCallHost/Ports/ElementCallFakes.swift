@@ -32,9 +32,9 @@ public final nonisolated class ElementCallFakeMatrixBackend: ElementCallMatrixBa
     /// above, which does not exist. That is a test reaching outside its process, and when the
     /// simulator's audio service stops answering, AudioToolbox aborts the whole test run.
     ///
-    /// Hang up what a test starts. A call nobody hangs up fails once the core stops waiting for the
-    /// room, after 30 seconds (`MatrixRTCClient.seedingTimeout`), and tells the system port it
-    /// failed.
+    /// Hang up what a test starts. A hang-up while joining ends the call as `.ended(.left)`, but a
+    /// call nobody hangs up fails once the core stops waiting for the room, after 30 seconds
+    /// (`MatrixRTCClient.seedingTimeout`), and tells the system port it failed.
     public let opensRooms: Bool
     
     public init(userID: String = "@alice:example.org",

@@ -545,6 +545,14 @@ public final class ElementCallController {
     /// land anywhere inside it; without this the join carried on, published camera and microphone
     /// into a session nobody owned any more, and the app kept both open with no screen left to stop
     /// them.
+    ///
+    /// A step that throws after the cancel is not a failure, so every catch in the join checks for
+    /// the cancel before failing. The cancel is usually why it threw: the wait for the room gives up
+    /// on it with `roomNotReady`, and a join or a media connection still in flight has the room or
+    /// the call torn down under it by `endCall`. By then `endCall` has ended the call, so failing it
+    /// turned `.ended(.left)` into `.failed` and ended the call a second time, and that was the next
+    /// call if the host had started one on `.ended`. Nothing needs tearing down there either: a step
+    /// that threw made nothing, and `endCall` released what the steps before it made.
     private var runTask: Task<Void, Never>?
     
     private func runCall(_ callData: ElementCallData, room: any ElementCallRoomContextProtocol) async {
@@ -559,6 +567,10 @@ public final class ElementCallController {
         do {
             call = try await rtcCall.connectMedia(isSFUFallbackEnabled: options.isSFUFallbackEnabled)
         } catch {
+            guard !Task.isCancelled else {
+                log(.info, "join of \(room.roomID) was cancelled, ignoring: \(error)")
+                return
+            }
             fail("Media failed: \(error)")
             return
         }
@@ -600,6 +612,10 @@ public final class ElementCallController {
         do {
             rtcRoom = try await rtcClient.room(roomID: room.roomID, format: format)
         } catch {
+            guard !Task.isCancelled else {
+                log(.info, "join of \(room.roomID) was cancelled, ignoring: \(error)")
+                return nil
+            }
             fail("Could not open the room: \(error)")
             return nil
         }
@@ -612,6 +628,9 @@ public final class ElementCallController {
         let rtcCall: MatrixRTCCall
         do {
             rtcCall = try await rtcRoom.joinCall(kind: Self.kind(for: callData, isDirect: room.isDirect))
+        } catch let error where Task.isCancelled {
+            log(.info, "join of \(room.roomID) was cancelled, ignoring: \(error)")
+            return nil
         } catch MatrixRTCError.joinTimedOut {
             fail(.joinTimedOut)
             return nil
@@ -641,6 +660,10 @@ public final class ElementCallController {
         do {
             try await call.publishMicrophone(muted: pendingMicrophoneMuted)
         } catch {
+            guard !Task.isCancelled else {
+                log(.info, "join of \(room.roomID) was cancelled, ignoring: \(error)")
+                return
+            }
             fail("Microphone failed: \(error)")
             return
         }

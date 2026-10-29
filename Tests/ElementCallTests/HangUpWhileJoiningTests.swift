@@ -41,6 +41,46 @@ struct HangUpWhileJoiningTests {
         try await fixture.hangUp(first)
     }
     
+    /// The hang-up cancels the join, and the cancel makes the wait for the room throw. That throw
+    /// used to fail a call that had already ended: `.failed` in place of `.ended(.left)`, and the
+    /// system told twice.
+    @Test
+    func hangingUpWhileJoiningEndsTheCallOnce() async throws {
+        let fixture = Fixture()
+        fixture.controller.startCall(callData, room: first)
+        try await fixture.waitForTheRoom(first)
+        
+        try await fixture.hangUp(first)
+        
+        #expect(fixture.controller.connection == .ended(.left))
+        #expect(fixture.recorder.endedCount == 1)
+        #expect(fixture.systemEnds == [.end(roomID: first.roomID, reason: .local)])
+    }
+    
+    /// A host that starts the next call on `.ended` starts it before the cancelled join has
+    /// unwound, so the failure the join used to report landed on the new call and ended it.
+    @Test
+    func aCallStartedAsTheLastOneEndsKeepsJoining() async throws {
+        let fixture = Fixture()
+        fixture.recorder.onEnded = { [controller = fixture.controller, callData, second] in
+            controller.reset()
+            controller.startCall(callData, room: second)
+        }
+        fixture.controller.startCall(callData, room: first)
+        try await fixture.waitForTheRoom(first)
+        
+        try await fixture.hangUp(first)
+        try await fixture.waitForTheRoom(second)
+        
+        #expect(fixture.controller.connection == .joining)
+        #expect(fixture.controller.room?.roomID == second.roomID)
+        #expect(fixture.systemEnds == [.end(roomID: first.roomID, reason: .local)])
+        
+        try await fixture.hangUp(second)
+        #expect(fixture.systemEnds == [.end(roomID: first.roomID, reason: .local),
+                                       .end(roomID: second.roomID, reason: .local)])
+    }
+    
     // MARK: - Helpers
     
     private final class Fixture {
